@@ -1,30 +1,33 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// test/widget_test.dart
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import this
 
-import 'package:fuelgauge_dev/main.dart';
+import 'package:fuelgauge_tracker/main.dart'; // Use the new project name
+import 'package:fuelgauge_tracker/providers/theme_manager.dart'; // Use the new project name
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  // This line is crucial for tests that use SharedPreferences.
+  // It provides a "fake" storage for the test environment.
+  SharedPreferences.setMockInitialValues({});
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('Dashboard loads and displays key widgets',
+      (WidgetTester tester) async {
+    // 1. Build our app, wrapped in the necessary provider.
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => ThemeManager(),
+        child: const FuelTrackerApp(),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // 2. Wait for any loading animations or data futures to complete.
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // 3. Now, verify that the widgets are on the screen.
+    expect(find.text('Dashboard'), findsOneWidget);
+    expect(find.text('Avg. Consumption'), findsOneWidget);
+    expect(find.text('Add Fuel Log'), findsOneWidget);
   });
 }
