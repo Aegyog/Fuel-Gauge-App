@@ -1,5 +1,11 @@
+<<<<<<< HEAD
 name: devfuelgaugetracker
 description: "FuelGauge - Fuel tracker and performance app"
+=======
+name: fuel_gauge # You can change this to your app's name
+description: "A fuel tracking application."
+# Prevent accidental publishing to pub.dev.
+>>>>>>> c6989d5 (Updated the features)
 publish_to: 'none' 
 
 version: 1.0.0+1
