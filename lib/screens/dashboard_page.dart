@@ -123,16 +123,13 @@ class _DashboardPageState extends State<DashboardPage> {
 
     List<MaintenanceLog> due = [];
     for (var mLog in allMaintenance) {
-      // Only check reminders for the currently selected vehicle
       if (mLog.vehicleId == _selectedVehicle) {
         bool isDue = false;
-        // Check mileage reminder against the latest fuel log
         if (mLog.nextReminderMileage != null &&
             latestLog != null &&
             latestLog.mileage >= mLog.nextReminderMileage!) {
           isDue = true;
         }
-        // Check date reminder
         if (mLog.nextReminderDate != null &&
             mLog.nextReminderDate!.isNotEmpty &&
             DateTime.now().isAfter(DateTime.parse(mLog.nextReminderDate!))) {
@@ -238,8 +235,12 @@ class _DashboardPageState extends State<DashboardPage> {
     await prefs.setString('selectedVehicle', vehicle);
     setState(() {
       _selectedVehicle = vehicle;
+      if (vehicle != 'All Vehicles') {
+        _vehicleController.text = vehicle;
+      } else {
+        _vehicleController.clear();
+      }
     });
-    // Check reminders for the newly selected vehicle
     await _checkReminders();
   }
 
