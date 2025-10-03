@@ -1,8 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_manager.dart';
-import '../utils/constants.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -12,9 +12,13 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  // State variables for local settings
   bool _isMiles = false;
   double _efficiencyThreshold = 9.0;
   final _thresholdController = TextEditingController();
+
+  // State variable for the current user
+  final _currentUser = FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
@@ -26,6 +30,12 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _thresholdController.dispose();
     super.dispose();
+  }
+
+  // Method to log the user out
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    // The AuthGate widget will automatically navigate back to the LoginPage
   }
 
   Future<void> _loadSettings() async {
@@ -85,7 +95,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Confirm Reset'),
         content: const Text(
-            'Are you sure you want to delete all your fuel logs? This action cannot be undone.'),
+            'Are you sure you want to delete all your local fuel logs? This action cannot be undone.'),
         actions: <Widget>[
           TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -101,13 +111,13 @@ class _SettingsPageState extends State<SettingsPage> {
     if (confirmed == true && context.mounted) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove("fuel_logs");
-      // --- NEW: Also remove vehicle selection on reset ---
       await prefs.remove("selectedVehicle");
+      await prefs.remove("maintenance_logs");
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             backgroundColor: Colors.green,
-            content: Text("All data has been reset.")),
+            content: Text("All local data has been reset.")),
       );
     }
   }
@@ -118,13 +128,29 @@ class _SettingsPageState extends State<SettingsPage> {
     final isDarkTheme = themeManager.themeMode == ThemeMode.dark;
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text("Settings", style: Theme.of(context).textTheme.headlineLarge),
             const SizedBox(height: 24),
+
+            // --- Profile Section ---
+            const Text("PROFILE"),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text("Logged In As"),
+                subtitle: Text(_currentUser?.email ?? "Not available"),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // --- General Settings ---
+            const Text("GENERAL"),
+            const SizedBox(height: 8),
             Card(
               child: Column(
                 children: [
@@ -157,17 +183,29 @@ class _SettingsPageState extends State<SettingsPage> {
                 onTap: _showThresholdDialog,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+
+            // --- DATA & ACCOUNT ---
+            const Text("DATA & ACCOUNT"),
+            const SizedBox(height: 8),
             Card(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? kDarkCardBackgroundColor
-                  : Colors.red.shade50,
-              child: ListTile(
-                leading:
-                    const Icon(Icons.delete_forever, color: Colors.redAccent),
-                title: const Text("Reset All Data",
-                    style: TextStyle(color: Colors.redAccent)),
-                onTap: () => _resetData(context),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.delete_forever,
+                        color: Colors.orange.shade700),
+                    title: Text("Reset Local Data",
+                        style: TextStyle(color: Colors.orange.shade700)),
+                    onTap: () => _resetData(context),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: Colors.redAccent),
+                    title: const Text("Log Out",
+                        style: TextStyle(color: Colors.redAccent)),
+                    onTap: _logout,
+                  ),
+                ],
               ),
             )
           ],

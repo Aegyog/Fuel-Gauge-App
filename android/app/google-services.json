@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "502743878627",
+    "project_id": "fuel-gauge-app-3706f",
+    "storage_bucket": "fuel-gauge-app-3706f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:502743878627:android:92a7b50287562fb237eed6",
+        "android_client_info": {
+          "package_name": "com.example.fuelgauge_dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7eElxyeXLXQAkoVAdSzTqmIJIXEvHudw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
