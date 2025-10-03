@@ -5,7 +5,7 @@ class FuelLog {
   final double cost;
   final String date;
   final String? note;
-  final String vehicleId; // --- NEW: To identify the vehicle ---
+  final String vehicleId;
 
   FuelLog({
     required this.mileage,
@@ -13,7 +13,7 @@ class FuelLog {
     required this.pricePerLiter,
     required this.cost,
     required this.date,
-    required this.vehicleId, // --- NEW: Make it required ---
+    required this.vehicleId,
     this.note,
   });
 
@@ -24,7 +24,7 @@ class FuelLog {
         'cost': cost,
         'date': date,
         'note': note,
-        'vehicleId': vehicleId, // --- NEW: Add to JSON ---
+        'vehicleId': vehicleId,
       };
 
   factory FuelLog.fromJson(Map<String, dynamic> json) => FuelLog(
@@ -34,7 +34,6 @@ class FuelLog {
         cost: json['cost'],
         date: json['date'],
         note: json['note'],
-        // --- NEW: Read from JSON, with a fallback for old data ---
         vehicleId: json['vehicleId'] ?? 'Default',
       );
 }

@@ -24,6 +24,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _showDialog(String title, String message) async {
+    if (!mounted) return;
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -44,6 +45,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _resetPassword() async {
     final emailForReset = TextEditingController(text: _emailController.text);
 
+    if (!mounted) return;
     await showDialog(
       context: context,
       builder: (context) {
@@ -69,7 +71,8 @@ class _LoginPageState extends State<LoginPage> {
             ElevatedButton(
               onPressed: () async {
                 if (emailForReset.text.isEmpty) {
-                  Navigator.of(context).pop();
+                  // FIX: Guard the context check
+                  if (mounted) Navigator.of(context).pop();
                   _showDialog("Error", "Please enter an email address.");
                   return;
                 }
@@ -78,12 +81,11 @@ class _LoginPageState extends State<LoginPage> {
                   await _auth.sendPasswordResetEmail(
                       email: emailForReset.text.trim());
 
-                  Navigator.of(context).pop();
+                  if (mounted) Navigator.of(context).pop();
                   _showDialog("Success",
-                      "Password reset link sent! Please check your inbox or spam folder.");
+                      "If an account exists for that email, a password reset link has been sent.");
                 } on FirebaseAuthException catch (e) {
-                  Navigator.of(context).pop();
-                  // The 'invalid-email' code is often used if the user is not found.
+                  if (mounted) Navigator.of(context).pop();
                   if (e.code == 'user-not-found' || e.code == 'invalid-email') {
                     _showDialog("Error",
                         "This email is not registered. Please sign up first.");

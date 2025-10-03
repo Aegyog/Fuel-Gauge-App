@@ -289,28 +289,26 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text("Maintenance Due",
                     style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
-                ..._dueReminders
-                    .map((log) => Card(
-                          color: kWarningColor.withOpacity(0.2),
-                          child: ListTile(
-                            leading: const Icon(Icons.build_circle,
-                                color: kWarningColor),
-                            title: Text(log.serviceType),
-                            subtitle:
-                                const Text("This vehicle is due for service."),
-                          ),
-                        ))
-                    .toList(),
+                ..._dueReminders.map((log) => Card(
+                      color: kWarningColor.withAlpha(51),
+                      child: ListTile(
+                        leading: const Icon(Icons.build_circle,
+                            color: kWarningColor),
+                        title: Text(log.serviceType),
+                        subtitle:
+                            const Text("This vehicle is due for service."),
+                      ),
+                    ))
               ],
               if (recommendationMessage != null) ...[
                 const SizedBox(height: 16),
                 Card(
                   color: Theme.of(context).brightness == Brightness.dark
                       ? const Color(0xFF5A4A18)
-                      : kWarningColor.withOpacity(0.2),
+                      : kWarningColor.withAlpha(51),
                   child: ListTile(
-                    leading:
-                        Icon(Icons.warning_amber_rounded, color: kWarningColor),
+                    leading: const Icon(Icons.warning_amber_rounded,
+                        color: kWarningColor),
                     title: Text(
                       recommendationMessage,
                       style: TextStyle(
@@ -390,12 +388,10 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
               const SizedBox(height: 24),
               if (_filteredLogs.length < 2)
-                Center(
+                const Center(
                     child: Text(
-                        _selectedVehicle == 'All Vehicles'
-                            ? "Add at least two logs to see charts."
-                            : "Add at least two logs for this vehicle to see charts.",
-                        style: const TextStyle(color: kSecondaryTextColor)))
+                        'Add at least two logs for this vehicle to see charts.',
+                        style: TextStyle(color: kSecondaryTextColor)))
               else
                 Column(
                   children: [
@@ -515,7 +511,7 @@ class _DashboardPageState extends State<DashboardPage> {
               shape: BoxShape.circle,
               color: _currentChartIndex == index
                   ? kAccentColor
-                  : kSecondaryTextColor.withOpacity(0.5),
+                  : kSecondaryTextColor.withAlpha(128),
             ),
           ),
         );
@@ -533,7 +529,8 @@ class _DashboardPageState extends State<DashboardPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style: TextStyle(color: kSecondaryTextColor, fontSize: 14)),
+                style:
+                    const TextStyle(color: kSecondaryTextColor, fontSize: 14)),
             const SizedBox(height: 4),
             Text(value,
                 style: TextStyle(
@@ -571,8 +568,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       color: kSecondaryTextColor, fontSize: 12)),
               labelStyle:
                   const TextStyle(color: kSecondaryTextColor, fontSize: 12),
-              majorGridLines: MajorGridLines(
-                  width: 0.5, color: Colors.grey.withOpacity(0.2)),
+              majorGridLines:
+                  MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(51)),
             ),
       primaryYAxis: NumericAxis(
         title: AxisTitle(
@@ -581,7 +578,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const TextStyle(color: kSecondaryTextColor, fontSize: 12)),
         labelStyle: const TextStyle(color: kSecondaryTextColor, fontSize: 12),
         majorGridLines:
-            MajorGridLines(width: 0.5, color: Colors.grey.withOpacity(0.2)),
+            MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(51)),
       ),
       plotAreaBorderWidth: 0,
       series: <CartesianSeries>[series],

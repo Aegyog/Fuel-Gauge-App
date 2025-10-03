@@ -66,10 +66,6 @@ class _HistoryPageState extends State<HistoryPage>
   }
 }
 
-// -----------------------------------------------------------------------------
-// --- WIDGET FOR THE "FUEL" TAB ---
-// This contains all the code from the previous version of HistoryPage.
-// -----------------------------------------------------------------------------
 class _FuelHistoryTab extends StatefulWidget {
   const _FuelHistoryTab();
 
@@ -369,10 +365,6 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
   }
 }
 
-// -----------------------------------------------------------------------------
-// --- WIDGET FOR THE "MAINTENANCE" TAB ---
-// This is entirely new.
-// -----------------------------------------------------------------------------
 class _MaintenanceHistoryTab extends StatefulWidget {
   const _MaintenanceHistoryTab();
 
@@ -497,10 +489,6 @@ class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
   }
 }
 
-// -----------------------------------------------------------------------------
-// --- DIALOG FOR ADDING/EDITING MAINTENANCE ---
-// This is also entirely new.
-// -----------------------------------------------------------------------------
 class _AddMaintenanceDialog extends StatefulWidget {
   final MaintenanceLog? log;
   const _AddMaintenanceDialog({this.log});
