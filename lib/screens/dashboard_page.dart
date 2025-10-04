@@ -27,7 +27,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // Settings State
   bool _isMiles = false;
-  double _efficiencyThreshold = 9.0;
+  double? _efficiencyThreshold; // MODIFIED: Now nullable to be optional
 
   // Chart State
   final PageController _chartPageController = PageController();
@@ -78,7 +78,8 @@ class _DashboardPageState extends State<DashboardPage> {
     if (mounted) {
       setState(() {
         _isMiles = prefs.getBool('isMiles') ?? false;
-        _efficiencyThreshold = prefs.getDouble('efficiencyThreshold') ?? 9.0;
+        // MODIFIED: Load a nullable double. If it's not set, it will be null.
+        _efficiencyThreshold = prefs.getDouble('efficiencyThreshold');
       });
     }
   }
@@ -248,13 +249,21 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     String? recommendationMessage;
     final avgConsumption = _averageConsumption;
-    final unit = _isMiles ? "mpg" : "km/L";
-    final thresholdInCurrentUnit =
-        _isMiles ? (_efficiencyThreshold * 2.35215) : _efficiencyThreshold;
+    final unit = _isMiles ? "MPG" : "km/L";
 
-    if (avgConsumption != null && avgConsumption < thresholdInCurrentUnit) {
+    // --- MODIFIED: New logic for recommendations ---
+    if (_efficiencyThreshold == null) {
+      // If no goal is set, show a prompt to set one.
       recommendationMessage =
-          "You may be driving too aggressively. Consider checking tire pressure and avoiding rapid acceleration.";
+          "Set an efficiency goal in Settings to get performance recommendations.";
+    } else {
+      // If a goal is set, use the original logic.
+      final thresholdInCurrentUnit =
+          _isMiles ? (_efficiencyThreshold! * 2.35215) : _efficiencyThreshold!;
+      if (avgConsumption != null && avgConsumption < thresholdInCurrentUnit) {
+        recommendationMessage =
+            "You may be driving too aggressively. Consider checking tire pressure and avoiding rapid acceleration.";
+      }
     }
 
     return SafeArea(
@@ -307,7 +316,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       ? const Color(0xFF5A4A18)
                       : kWarningColor.withAlpha(51),
                   child: ListTile(
-                    leading: const Icon(Icons.warning_amber_rounded,
+                    leading: Icon(
+                        _efficiencyThreshold == null
+                            ? Icons.lightbulb_outline
+                            : Icons.warning_amber_rounded,
                         color: kWarningColor),
                     title: Text(
                       recommendationMessage,
