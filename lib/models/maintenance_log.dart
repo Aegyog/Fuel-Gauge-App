@@ -1,5 +1,7 @@
 import 'package:uuid/uuid.dart';
 
+// Represents a single maintenance record for a vehicle.
+// Includes service details, cost, mileage, and optional reminders.
 class MaintenanceLog {
   final String id;
   final String vehicleId;
@@ -11,6 +13,7 @@ class MaintenanceLog {
   final double? nextReminderMileage;
   final String? nextReminderDate;
 
+  // Constructor automatically generates a unique ID if not provided.
   MaintenanceLog({
     String? id,
     required this.vehicleId,
@@ -23,6 +26,7 @@ class MaintenanceLog {
     this.nextReminderDate,
   }) : id = id ?? const Uuid().v4();
 
+  // Converts the MaintenanceLog object to a JSON map for storage or transfer.
   Map<String, dynamic> toJson() => {
         'id': id,
         'vehicleId': vehicleId,
@@ -35,6 +39,7 @@ class MaintenanceLog {
         'nextReminderDate': nextReminderDate,
       };
 
+  // Creates a MaintenanceLog object from a JSON map (used when reading from storage).
   factory MaintenanceLog.fromJson(Map<String, dynamic> json) => MaintenanceLog(
         id: json['id'],
         vehicleId: json['vehicleId'],
