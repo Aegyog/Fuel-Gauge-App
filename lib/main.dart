@@ -7,12 +7,15 @@ import 'utils/constants.dart';
 import 'widgets/auth_gate.dart';
 
 void main() async {
+  // Ensures Flutter bindings are initialized before Firebase setup
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Firebase with platform-specific configuration
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Launch the app with ThemeManager as a provider for theme switching
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeManager(),
@@ -21,16 +24,20 @@ void main() async {
   );
 }
 
+// Root widget of the application
 class FuelTrackerApp extends StatelessWidget {
   const FuelTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilds the app when the theme changes
     return Consumer<ThemeManager>(
       builder: (context, themeManager, child) {
         return MaterialApp(
           title: 'FuelGauge',
           themeMode: themeManager.themeMode,
+
+          // Light theme configuration
           theme: ThemeData(
             brightness: Brightness.light,
             scaffoldBackgroundColor: kLightScaffoldBackgroundColor,
@@ -66,6 +73,8 @@ class FuelTrackerApp extends StatelessWidget {
               elevation: 2,
             ),
           ),
+
+          // Dark theme configuration
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: kDarkScaffoldBackgroundColor,
@@ -99,6 +108,8 @@ class FuelTrackerApp extends StatelessWidget {
               unselectedItemColor: kSecondaryTextColor,
             ),
           ),
+
+          // Entry point that checks authentication state
           home: const AuthGate(),
         );
       },
