@@ -27,7 +27,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   // Settings State
   bool _isMiles = false;
-  double? _efficiencyThreshold; // MODIFIED: Now nullable to be optional
+  double? _efficiencyThreshold; // Nullable goal value
 
   // Chart State
   final PageController _chartPageController = PageController();
@@ -40,7 +40,7 @@ class _DashboardPageState extends State<DashboardPage> {
   // Maintenance State
   List<MaintenanceLog> _dueReminders = [];
 
-  // Computed list of logs based on the vehicle filter
+  // Filter logs by selected vehicle
   List<FuelLog> get _filteredLogs {
     if (_selectedVehicle == 'All Vehicles' || _selectedVehicle.isEmpty) {
       return _allFuelLogs;
@@ -53,11 +53,12 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    _refreshData();
+    _refreshData(); // Load all data when screen opens
   }
 
   @override
   void dispose() {
+    // Dispose controllers to free memory
     _mileageController.dispose();
     _litersController.dispose();
     _priceController.dispose();
@@ -67,23 +68,25 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
+  // Reload settings, logs, and reminders
   Future<void> _refreshData() async {
     await _loadSettings();
     await _loadLogs();
     await _checkReminders();
   }
 
+  // Load stored settings
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
         _isMiles = prefs.getBool('isMiles') ?? false;
-        // MODIFIED: Load a nullable double. If it's not set, it will be null.
         _efficiencyThreshold = prefs.getDouble('efficiencyThreshold');
       });
     }
   }
 
+  // Load and decode saved logs
   Future<void> _loadLogs() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getStringList("fuel_logs") ?? [];
@@ -93,6 +96,7 @@ class _DashboardPageState extends State<DashboardPage> {
             stored.map((e) => FuelLog.fromJson(jsonDecode(e))).toList();
         _allFuelLogs.sort((a, b) => a.mileage.compareTo(b.mileage));
 
+        // Build vehicle list from logs
         final uniqueVehicles =
             LinkedHashSet<String>.from(_allFuelLogs.map((log) => log.vehicleId))
                 .toList();
@@ -106,6 +110,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  // Check which maintenance reminders are due
   Future<void> _checkReminders() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getStringList("maintenance_logs") ?? [];
@@ -116,9 +121,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     final latestLog = _filteredLogs.isNotEmpty ? _filteredLogs.last : null;
     if (latestLog == null && _selectedVehicle != 'All Vehicles') {
-      setState(() {
-        _dueReminders = [];
-      });
+      setState(() => _dueReminders = []);
       return;
     }
 
@@ -126,35 +129,33 @@ class _DashboardPageState extends State<DashboardPage> {
     for (var mLog in allMaintenance) {
       if (mLog.vehicleId == _selectedVehicle) {
         bool isDue = false;
+        // Check mileage reminder
         if (mLog.nextReminderMileage != null &&
             latestLog != null &&
             latestLog.mileage >= mLog.nextReminderMileage!) {
           isDue = true;
         }
+        // Check date reminder
         if (mLog.nextReminderDate != null &&
             mLog.nextReminderDate!.isNotEmpty &&
             DateTime.now().isAfter(DateTime.parse(mLog.nextReminderDate!))) {
           isDue = true;
         }
-        if (isDue) {
-          due.add(mLog);
-        }
+        if (isDue) due.add(mLog);
       }
     }
 
-    if (mounted) {
-      setState(() {
-        _dueReminders = due;
-      });
-    }
+    if (mounted) setState(() => _dueReminders = due);
   }
 
+  // Save all logs to local storage
   Future<void> _saveLogs() async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = _allFuelLogs.map((e) => jsonEncode(e.toJson())).toList();
     await prefs.setStringList("fuel_logs", encoded);
   }
 
+  // Add new fuel log
   void _addLog() {
     final mileage = double.tryParse(_mileageController.text);
     final liters = double.tryParse(_litersController.text);
@@ -180,13 +181,12 @@ class _DashboardPageState extends State<DashboardPage> {
         _allFuelLogs.add(log);
         _allFuelLogs.sort((a, b) => a.mileage.compareTo(b.mileage));
 
-        if (!_vehicleList.contains(vehicleId)) {
-          _vehicleList.add(vehicleId);
-        }
+        if (!_vehicleList.contains(vehicleId)) _vehicleList.add(vehicleId);
       });
 
-      _saveLogs();
+      _saveLogs(); // Save updated list
 
+      // Clear inputs
       _mileageController.clear();
       _litersController.clear();
       _priceController.clear();
@@ -194,6 +194,7 @@ class _DashboardPageState extends State<DashboardPage> {
       _vehicleController.clear();
       FocusScope.of(context).unfocus();
     } else {
+      // Show error if inputs are invalid
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             backgroundColor: Colors.redAccent,
@@ -202,24 +203,25 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  // Compute total fuel cost
   double get _totalCost =>
       _filteredLogs.fold(0.0, (sum, log) => sum + log.cost);
 
+  // Compute average fuel efficiency
   double? get _averageConsumption {
     if (_filteredLogs.length < 2) return null;
-
     double totalDistance =
         _filteredLogs.last.mileage - _filteredLogs.first.mileage;
     double totalFuel = _filteredLogs
         .sublist(0, _filteredLogs.length - 1)
         .fold(0.0, (sum, log) => sum + log.liters);
-
     if (totalDistance <= 0 || totalFuel <= 0) return null;
 
     double kmPerLiter = totalDistance / totalFuel;
     return _isMiles ? (kmPerLiter * 2.35215) : kmPerLiter;
   }
 
+  // Group monthly fuel spend
   List<_MonthlyData> get _monthlySpend {
     final Map<String, double> monthlyTotals = {};
     for (var log in _filteredLogs) {
@@ -231,6 +233,7 @@ class _DashboardPageState extends State<DashboardPage> {
         .toList();
   }
 
+  // Save and set selected vehicle
   Future<void> _setSelectedVehicle(String vehicle) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selectedVehicle', vehicle);
@@ -251,24 +254,22 @@ class _DashboardPageState extends State<DashboardPage> {
     final avgConsumption = _averageConsumption;
     final unit = _isMiles ? "MPG" : "km/L";
 
-    // --- MODIFIED: New logic for recommendations ---
+    // Recommendation logic
     if (_efficiencyThreshold == null) {
-      // If no goal is set, show a prompt to set one.
       recommendationMessage =
           "Set an efficiency goal in Settings to get performance recommendations.";
     } else {
-      // If a goal is set, use the original logic.
       final thresholdInCurrentUnit =
           _isMiles ? (_efficiencyThreshold! * 2.35215) : _efficiencyThreshold!;
       if (avgConsumption != null && avgConsumption < thresholdInCurrentUnit) {
         recommendationMessage =
-            "You may be driving too aggressively. Consider checking tire pressure and avoiding rapid acceleration.";
+            "You may be driving too aggressively. Check tire pressure and avoid rapid acceleration.";
       }
     }
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: _refreshData,
+        onRefresh: _refreshData, // Pull-to-refresh
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -293,6 +294,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           "Total Cost", "₱${_totalCost.toStringAsFixed(2)}")),
                 ],
               ),
+              // Show maintenance reminders
               if (_dueReminders.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text("Maintenance Due",
@@ -309,6 +311,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                     ))
               ],
+              // Show recommendation message
               if (recommendationMessage != null) ...[
                 const SizedBox(height: 16),
                 Card(
@@ -332,6 +335,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ],
               const SizedBox(height: 24),
+              // Input fields
               TextField(
                 controller: _vehicleController,
                 decoration: const InputDecoration(
@@ -364,6 +368,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     hintText: "Note (e.g., City driving)"),
               ),
               const SizedBox(height: 12),
+              // Date picker
               ListTile(
                 onTap: () async {
                   final picked = await showDatePicker(
@@ -385,6 +390,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     color: kSecondaryTextColor, size: 18),
               ),
               const SizedBox(height: 20),
+              // Add log button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -399,6 +405,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
               const SizedBox(height: 24),
+              // Charts section
               if (_filteredLogs.length < 2)
                 const Center(
                     child: Text(
@@ -411,12 +418,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       height: 300,
                       child: PageView(
                         controller: _chartPageController,
-                        onPageChanged: (int index) {
-                          setState(() {
-                            _currentChartIndex = index;
-                          });
-                        },
+                        onPageChanged: (int index) =>
+                            setState(() => _currentChartIndex = index),
                         children: [
+                          // Chart 1
                           _buildChart(
                               "Fuel Consumed vs Total Mileage",
                               "Mileage",
@@ -429,6 +434,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     const MarkerSettings(isVisible: true),
                                 color: kAccentColor,
                               )),
+                          // Chart 2
                           _buildChart(
                               "Fuel Cost vs Total Mileage",
                               "Mileage",
@@ -441,6 +447,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     const MarkerSettings(isVisible: true),
                                 color: kChartLineColor,
                               )),
+                          // Chart 3
                           _buildChart(
                               "Monthly Spend",
                               "Month",
@@ -475,6 +482,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  // Dropdown to filter vehicles
   Widget _buildVehicleFilter() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -486,16 +494,11 @@ class _DashboardPageState extends State<DashboardPage> {
         child: DropdownButton<String>(
           value: _selectedVehicle,
           isExpanded: true,
-          items: _vehicleList.map((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text(value),
-            );
-          }).toList(),
+          items: _vehicleList
+              .map((String value) => DropdownMenuItem(value: value, child: Text(value)))
+              .toList(),
           onChanged: (newValue) {
-            if (newValue != null) {
-              _setSelectedVehicle(newValue);
-            }
+            if (newValue != null) _setSelectedVehicle(newValue);
           },
           hint: const Text("Select Vehicle"),
         ),
@@ -503,6 +506,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  // Dots for chart navigation
   Widget _buildChartIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -531,6 +535,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  // Card for summary data
   Widget _buildSummaryCard(String title, String value) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
@@ -555,6 +560,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  // Chart builder function
   Widget _buildChart(String title, String xAxisTitle, String yAxisTitle,
       CartesianSeries series,
       {bool isCategory = false}) {
@@ -567,8 +573,8 @@ class _DashboardPageState extends State<DashboardPage> {
           ? CategoryAxis(
               title: AxisTitle(
                   text: xAxisTitle,
-                  textStyle: const TextStyle(
-                      color: kSecondaryTextColor, fontSize: 12)),
+                  textStyle:
+                      const TextStyle(color: kSecondaryTextColor, fontSize: 12)),
               labelStyle:
                   const TextStyle(color: kSecondaryTextColor, fontSize: 12),
               majorGridLines: const MajorGridLines(width: 0),
@@ -576,8 +582,8 @@ class _DashboardPageState extends State<DashboardPage> {
           : NumericAxis(
               title: AxisTitle(
                   text: xAxisTitle,
-                  textStyle: const TextStyle(
-                      color: kSecondaryTextColor, fontSize: 12)),
+                  textStyle:
+                      const TextStyle(color: kSecondaryTextColor, fontSize: 12)),
               labelStyle:
                   const TextStyle(color: kSecondaryTextColor, fontSize: 12),
               majorGridLines:
@@ -598,6 +604,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
+// Monthly spend model for bar chart
 class _MonthlyData {
   final String month;
   final double cost;
