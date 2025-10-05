@@ -7,7 +7,7 @@ import '../models/fuel_log.dart';
 import '../models/maintenance_log.dart';
 import '../utils/constants.dart';
 
-// The main page widget that now holds the TabBar structure.
+// Main screen showing both Fuel and Maintenance history tabs
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
@@ -22,7 +22,7 @@ class _HistoryPageState extends State<HistoryPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this); // Two tabs
   }
 
   @override
@@ -34,13 +34,12 @@ class _HistoryPageState extends State<HistoryPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // We use an AppBar here to host the TabBar.
+      // App bar with tabs
       appBar: AppBar(
         title: Text("Vehicle Records",
             style: Theme.of(context).textTheme.titleLarge),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        // The TabBar for switching views.
         bottom: TabBar(
           controller: _tabController,
           labelColor: Theme.of(context).textTheme.bodyLarge?.color,
@@ -52,14 +51,12 @@ class _HistoryPageState extends State<HistoryPage>
           ],
         ),
       ),
-      // TabBarView contains the content for each tab.
+      // Tabs content
       body: TabBarView(
         controller: _tabController,
         children: const [
-          // Content for the "Fuel" tab.
-          _FuelHistoryTab(),
-          // Content for the "Maintenance" tab.
-          _MaintenanceHistoryTab(),
+          _FuelHistoryTab(), // Fuel tab
+          _MaintenanceHistoryTab(), // Maintenance tab
         ],
       ),
     );
@@ -84,8 +81,8 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
   @override
   void initState() {
     super.initState();
-    _loadLogs();
-    _searchController.addListener(_filterLogs);
+    _loadLogs(); // Load saved fuel logs
+    _searchController.addListener(_filterLogs); // Listen for search updates
   }
 
   @override
@@ -95,6 +92,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
     super.dispose();
   }
 
+  // Load all saved fuel logs from local storage
   Future<void> _loadLogs() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getStringList("fuel_logs") ?? [];
@@ -104,28 +102,32 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
         _allLogs.sort(
             (a, b) => DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
 
+        // Extract unique vehicle names for dropdown filter
         final uniqueVehicles =
             LinkedHashSet<String>.from(_allLogs.map((log) => log.vehicleId))
                 .toList();
         _vehicleList = ['All Vehicles', ...uniqueVehicles];
         _selectedVehicle = prefs.getString('selectedVehicle') ?? 'All Vehicles';
+
         if (!_vehicleList.contains(_selectedVehicle)) {
           _selectedVehicle = 'All Vehicles';
         }
 
-        _filterLogs();
+        _filterLogs(); // Apply filters
       });
     }
   }
 
+  // Save logs back to local storage
   Future<void> _saveLogs() async {
     final prefs = await SharedPreferences.getInstance();
     _allLogs.sort((a, b) => a.mileage.compareTo(b.mileage));
     final encoded = _allLogs.map((e) => jsonEncode(e.toJson())).toList();
     await prefs.setStringList("fuel_logs", encoded);
-    _loadLogs();
+    _loadLogs(); // Refresh after saving
   }
 
+  // Filter logs by search text or selected vehicle
   void _filterLogs() {
     final query = _searchController.text.toLowerCase();
     setState(() {
@@ -150,8 +152,8 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
     });
   }
 
+  // Dialog for editing or deleting a log entry
   void _showEditDeleteDialog(FuelLog logToEdit) {
-    // This is the same dialog as before, no changes needed here.
     final mileageController =
         TextEditingController(text: logToEdit.mileage.toString());
     final litersController =
@@ -199,13 +201,14 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _confirmDelete(logToEdit);
+                _confirmDelete(logToEdit); // Confirm delete dialog
               },
               child: const Text("Delete",
                   style: TextStyle(color: Colors.redAccent)),
             ),
             ElevatedButton(
               onPressed: () {
+                // Update selected log with edited data
                 final updatedLog = FuelLog(
                   mileage: double.parse(mileageController.text),
                   liters: double.parse(litersController.text),
@@ -233,6 +236,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
     );
   }
 
+  // Ask user to confirm deletion
   void _confirmDelete(FuelLog logToDelete) {
     showDialog(
       context: context,
@@ -261,6 +265,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
     );
   }
 
+  // Update selected vehicle in preferences
   Future<void> _setSelectedVehicle(String vehicle) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('selectedVehicle', vehicle);
@@ -277,8 +282,9 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildVehicleFilter(),
+          _buildVehicleFilter(), // Dropdown for vehicle filter
           const SizedBox(height: 16),
+          // Search bar
           TextField(
             controller: _searchController,
             decoration: InputDecoration(
@@ -287,6 +293,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
             ),
           ),
           const SizedBox(height: 16),
+          // Display filtered logs
           Expanded(
             child: _displayLogs.isEmpty
                 ? const Center(
@@ -336,6 +343,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
     );
   }
 
+  // Dropdown widget for vehicle filtering
   Widget _buildVehicleFilter() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -361,294 +369,6 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
           hint: const Text("Select Vehicle"),
         ),
       ),
-    );
-  }
-}
-
-class _MaintenanceHistoryTab extends StatefulWidget {
-  const _MaintenanceHistoryTab();
-
-  @override
-  State<_MaintenanceHistoryTab> createState() => __MaintenanceHistoryTabState();
-}
-
-class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
-  List<MaintenanceLog> _maintenanceLogs = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMaintenanceLogs();
-  }
-
-  Future<void> _loadMaintenanceLogs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getStringList("maintenance_logs") ?? [];
-    if (mounted) {
-      setState(() {
-        _maintenanceLogs =
-            stored.map((e) => MaintenanceLog.fromJson(jsonDecode(e))).toList();
-        _maintenanceLogs.sort(
-            (a, b) => DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
-      });
-    }
-  }
-
-  Future<void> _saveMaintenanceLogs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded =
-        _maintenanceLogs.map((e) => jsonEncode(e.toJson())).toList();
-    await prefs.setStringList("maintenance_logs", encoded);
-    _loadMaintenanceLogs();
-  }
-
-  void _addOrEditLog({MaintenanceLog? log}) async {
-    final result = await showDialog<MaintenanceLog>(
-      context: context,
-      builder: (context) => _AddMaintenanceDialog(log: log),
-    );
-
-    if (result != null) {
-      setState(() {
-        if (log == null) {
-          _maintenanceLogs.add(result);
-        } else {
-          final index =
-              _maintenanceLogs.indexWhere((item) => item.id == log.id);
-          if (index != -1) {
-            _maintenanceLogs[index] = result;
-          }
-        }
-      });
-      _saveMaintenanceLogs();
-    }
-  }
-
-  void _confirmDelete(MaintenanceLog logToDelete) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirm Deletion"),
-        content: Text(
-            "Are you sure you want to delete the '${logToDelete.serviceType}' record?"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel")),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _maintenanceLogs.removeWhere((log) => log.id == logToDelete.id);
-              });
-              _saveMaintenanceLogs();
-              Navigator.of(context).pop();
-            },
-            child:
-                const Text("Delete", style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: _maintenanceLogs.isEmpty
-          ? const Center(
-              child: Text("No maintenance logs yet.\nTap '+' to add one.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: kSecondaryTextColor)))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _maintenanceLogs.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final log = _maintenanceLogs[index];
-                return Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.build_circle_outlined),
-                    title: Text("${log.vehicleId}: ${log.serviceType}"),
-                    subtitle: Text(
-                        "On ${DateFormat.yMMMd().format(DateTime.parse(log.date))} at ${log.mileage} km"),
-                    trailing: log.cost != null && log.cost! > 0
-                        ? Text("₱${log.cost?.toStringAsFixed(2)}")
-                        : null,
-                    onTap: () => _addOrEditLog(log: log),
-                    onLongPress: () => _confirmDelete(log),
-                  ),
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _addOrEditLog(),
-        backgroundColor: kAccentColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _AddMaintenanceDialog extends StatefulWidget {
-  final MaintenanceLog? log;
-  const _AddMaintenanceDialog({this.log});
-
-  @override
-  State<_AddMaintenanceDialog> createState() => _AddMaintenanceDialogState();
-}
-
-class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _serviceController = TextEditingController();
-  final _mileageController = TextEditingController();
-  final _costController = TextEditingController();
-  final _notesController = TextEditingController();
-  final _reminderMileageController = TextEditingController();
-
-  List<String> _vehicleList = [];
-  String? _selectedVehicle;
-  DateTime _selectedDate = DateTime.now();
-  DateTime? _reminderDate;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadVehicles();
-    if (widget.log != null) {
-      _serviceController.text = widget.log!.serviceType;
-      _mileageController.text = widget.log!.mileage.toString();
-      _costController.text = widget.log!.cost?.toString() ?? '';
-      _notesController.text = widget.log!.notes ?? '';
-      _selectedVehicle = widget.log!.vehicleId;
-      _selectedDate = DateTime.parse(widget.log!.date);
-      if (widget.log!.nextReminderMileage != null) {
-        _reminderMileageController.text =
-            widget.log!.nextReminderMileage.toString();
-      }
-      if (widget.log!.nextReminderDate != null) {
-        _reminderDate = DateTime.parse(widget.log!.nextReminderDate!);
-      }
-    }
-  }
-
-  Future<void> _loadVehicles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getStringList("fuel_logs") ?? [];
-    final allLogs = stored.map((e) => FuelLog.fromJson(jsonDecode(e))).toList();
-    final uniqueVehicles =
-        LinkedHashSet<String>.from(allLogs.map((log) => log.vehicleId))
-            .toList();
-    setState(() {
-      _vehicleList = uniqueVehicles;
-      if (widget.log == null && _vehicleList.isNotEmpty) {
-        _selectedVehicle = _vehicleList.first;
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _serviceController.dispose();
-    _mileageController.dispose();
-    _costController.dispose();
-    _notesController.dispose();
-    _reminderMileageController.dispose();
-    super.dispose();
-  }
-
-  void _onSave() {
-    if (_formKey.currentState!.validate()) {
-      final newLog = MaintenanceLog(
-        id: widget.log?.id,
-        vehicleId: _selectedVehicle!,
-        serviceType: _serviceController.text.trim(),
-        date: _selectedDate.toIso8601String(),
-        mileage: double.parse(_mileageController.text),
-        cost: double.tryParse(_costController.text),
-        notes: _notesController.text.trim(),
-        nextReminderMileage: double.tryParse(_reminderMileageController.text),
-        nextReminderDate: _reminderDate?.toIso8601String(),
-      );
-      Navigator.of(context).pop(newLog);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.log == null ? "Add Maintenance" : "Edit Maintenance"),
-      content: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: _selectedVehicle,
-                items: _vehicleList
-                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedVehicle = value),
-                decoration: const InputDecoration(labelText: "Vehicle"),
-                validator: (v) => v == null ? "Please select a vehicle" : null,
-              ),
-              TextFormField(
-                controller: _serviceController,
-                decoration: const InputDecoration(labelText: "Service Type"),
-                validator: (v) =>
-                    v!.isEmpty ? "Please enter a service type" : null,
-              ),
-              TextFormField(
-                controller: _mileageController,
-                decoration: const InputDecoration(labelText: "Mileage (km)"),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? "Please enter mileage" : null,
-              ),
-              TextFormField(
-                controller: _costController,
-                decoration: const InputDecoration(labelText: "Cost (Optional)"),
-                keyboardType: TextInputType.number,
-              ),
-              TextFormField(
-                controller: _notesController,
-                decoration:
-                    const InputDecoration(labelText: "Notes (Optional)"),
-              ),
-              const SizedBox(height: 20),
-              const Text("Next Reminder (Optional)",
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              TextFormField(
-                controller: _reminderMileageController,
-                decoration: const InputDecoration(
-                    labelText: "At Mileage (e.g., 60000)"),
-                keyboardType: TextInputType.number,
-              ),
-              ListTile(
-                title: Text(
-                    "On Date: ${_reminderDate == null ? 'Not Set' : DateFormat.yMMMd().format(_reminderDate!)}"),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _reminderDate ?? DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setState(() => _reminderDate = picked);
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Cancel")),
-        ElevatedButton(onPressed: _onSave, child: const Text("Save")),
-      ],
     );
   }
 }
