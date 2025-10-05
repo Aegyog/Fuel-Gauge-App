@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 
+// Sign-up screen that allows users to register with email and password
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
 
@@ -10,20 +11,27 @@ class SignUpPage extends StatefulWidget {
 }
 
 class _SignUpPageState extends State<SignUpPage> {
+  // Text controllers for input fields
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  // Firebase authentication instance
   final _auth = FirebaseAuth.instance;
+
+  // Controls loading state while signing up
   bool _isLoading = false;
 
   @override
   void dispose() {
+    // Dispose controllers to prevent memory leaks
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
+  // Displays an alert dialog for error messages
   Future<void> _showErrorDialog(String message) async {
     return showDialog<void>(
       context: context,
@@ -34,7 +42,7 @@ class _SignUpPageState extends State<SignUpPage> {
           actions: <Widget>[
             TextButton(
               child: const Text('OK'),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.of(context).pop(), // Closes dialog
             ),
           ],
         );
@@ -42,7 +50,9 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
+  // Handles user registration process
   Future<void> _signUp() async {
+    // Validate password and confirmation match
     if (_passwordController.text.trim() !=
         _confirmPasswordController.text.trim()) {
       _showErrorDialog("Passwords do not match. Please try again.");
@@ -50,17 +60,19 @@ class _SignUpPageState extends State<SignUpPage> {
     }
 
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    setState(() => _isLoading = true); // Show loading spinner
 
     try {
+      // Attempt to create a new user using Firebase Authentication
       await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // After successful sign-up, pop back to the login page.
-      // The AuthGate will then automatically navigate to the main app.
+
+      // Return to the login page after successful registration
       if (mounted) Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
+      // Handle common Firebase auth errors with specific messages
       String message;
       switch (e.code) {
         case 'email-already-in-use':
@@ -89,30 +101,39 @@ class _SignUpPageState extends State<SignUpPage> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
+
+      // Main content area
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Email input field
               TextField(
                 controller: _emailController,
                 decoration: const InputDecoration(hintText: "Email"),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 12),
+
+              // Password input field
               TextField(
                 controller: _passwordController,
                 decoration: const InputDecoration(hintText: "Password"),
                 obscureText: true,
               ),
               const SizedBox(height: 12),
+
+              // Confirm password input field
               TextField(
                 controller: _confirmPasswordController,
                 decoration: const InputDecoration(hintText: "Confirm Password"),
                 obscureText: true,
               ),
               const SizedBox(height: 30),
+
+              // Show loading spinner or Sign-Up button
               if (_isLoading)
                 const CircularProgressIndicator()
               else
