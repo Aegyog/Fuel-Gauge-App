@@ -1,3 +1,5 @@
+// Represents a fuel entry record for a specific vehicle.
+// Stores details like mileage, fuel amount, cost, and optional notes.
 class FuelLog {
   final double mileage;
   final double liters;
@@ -7,6 +9,7 @@ class FuelLog {
   final String? note;
   final String vehicleId;
 
+  // Constructor for creating a fuel log entry.
   FuelLog({
     required this.mileage,
     required this.liters,
@@ -17,6 +20,7 @@ class FuelLog {
     this.note,
   });
 
+  // Converts a FuelLog object into a JSON map (for database or storage use).
   Map<String, dynamic> toJson() => {
         'mileage': mileage,
         'liters': liters,
@@ -27,6 +31,7 @@ class FuelLog {
         'vehicleId': vehicleId,
       };
 
+  // Creates a FuelLog object from a JSON map (when reading from storage).
   factory FuelLog.fromJson(Map<String, dynamic> json) => FuelLog(
         mileage: json['mileage'],
         liters: json['liters'],
