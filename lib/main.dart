@@ -6,8 +6,8 @@ import 'providers/theme_manager.dart';
 import 'utils/constants.dart';
 import 'widgets/auth_gate.dart';
 
+// Ensures Flutter bindings are initialized before Firebase setup
 void main() async {
-  // Ensures Flutter bindings are initialized before Firebase setup
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase with platform-specific configuration
@@ -30,7 +30,6 @@ class FuelTrackerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Rebuilds the app when the theme changes
     return Consumer<ThemeManager>(
       builder: (context, themeManager, child) {
         return MaterialApp(
@@ -108,8 +107,6 @@ class FuelTrackerApp extends StatelessWidget {
               unselectedItemColor: kSecondaryTextColor,
             ),
           ),
-
-          // Entry point that checks authentication state
           home: const AuthGate(),
         );
       },
