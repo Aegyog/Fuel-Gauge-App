@@ -1,5 +1,7 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -369,6 +371,327 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
           hint: const Text("Select Vehicle"),
         ),
       ),
+    );
+  }
+}
+
+// --- WIDGET FOR THE "MAINTENANCE" TAB ---
+class _MaintenanceHistoryTab extends StatefulWidget {
+  const _MaintenanceHistoryTab();
+
+  @override
+  State<_MaintenanceHistoryTab> createState() => __MaintenanceHistoryTabState();
+}
+
+class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
+  List<MaintenanceLog> _maintenanceLogs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMaintenanceLogs();
+  }
+
+  /// Loads all saved maintenance logs from local shared preferences.
+  Future<void> _loadMaintenanceLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList("maintenance_logs") ?? [];
+    if (mounted) {
+      setState(() {
+        _maintenanceLogs =
+            stored.map((e) => MaintenanceLog.fromJson(jsonDecode(e))).toList();
+        _maintenanceLogs.sort(
+            (a, b) => DateTime.parse(b.date).compareTo(DateTime.parse(a.date)));
+      });
+    }
+  }
+
+  /// Saves the current list of maintenance logs to local shared preferences.
+  Future<void> _saveMaintenanceLogs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded =
+        _maintenanceLogs.map((e) => jsonEncode(e.toJson())).toList();
+    await prefs.setStringList("maintenance_logs", encoded);
+    _loadMaintenanceLogs();
+  }
+
+  /// Opens the Add/Edit Maintenance dialog and handles the result.
+  /// If a [log] is provided, it opens the dialog in edit mode.
+  /// Otherwise, it opens in create mode.
+  void _addOrEditLog({MaintenanceLog? log}) async {
+    if (!mounted) return;
+    final result = await showDialog<MaintenanceLog>(
+      context: context,
+      builder: (context) => _AddMaintenanceDialog(log: log),
+    );
+
+    if (result != null) {
+      setState(() {
+        if (log == null) {
+          _maintenanceLogs.add(result);
+        } else {
+          final index =
+              _maintenanceLogs.indexWhere((item) => item.id == log.id);
+          if (index != -1) {
+            _maintenanceLogs[index] = result;
+          }
+        }
+      });
+      _saveMaintenanceLogs();
+    }
+  }
+
+  /// Shows a confirmation dialog before deleting a maintenance log.
+  void _confirmDelete(MaintenanceLog logToDelete) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirm Deletion"),
+        content: Text(
+            "Are you sure you want to delete the '${logToDelete.serviceType}' record?"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _maintenanceLogs.removeWhere((log) => log.id == logToDelete.id);
+              });
+              _saveMaintenanceLogs();
+              Navigator.of(context).pop();
+            },
+            child:
+                const Text("Delete", style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _maintenanceLogs.isEmpty
+          ? const Center(
+              child: Text("No maintenance logs yet.\nTap '+' to add one.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: kSecondaryTextColor)))
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: _maintenanceLogs.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final log = _maintenanceLogs[index];
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.build_circle_outlined),
+                    title: Text("${log.vehicleId}: ${log.serviceType}"),
+                    subtitle: Text(
+                        "On ${DateFormat.yMMMd().format(DateTime.parse(log.date))} at ${log.mileage} km"),
+                    trailing: log.cost != null && log.cost! > 0
+                        ? Text("₱${log.cost?.toStringAsFixed(2)}")
+                        : null,
+                    onTap: () => _addOrEditLog(log: log),
+                    onLongPress: () => _confirmDelete(log),
+                  ),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _addOrEditLog(),
+        backgroundColor: kAccentColor,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+}
+
+// --- DIALOG FOR ADDING/EDITING MAINTENANCE ---
+class _AddMaintenanceDialog extends StatefulWidget {
+  final MaintenanceLog? log;
+  const _AddMaintenanceDialog({this.log});
+
+  @override
+  State<_AddMaintenanceDialog> createState() => _AddMaintenanceDialogState();
+}
+
+class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _serviceController = TextEditingController();
+  final _mileageController = TextEditingController();
+  final _costController = TextEditingController();
+  final _notesController = TextEditingController();
+  final _reminderMileageController = TextEditingController();
+
+  List<String> _vehicleList = [];
+  String? _selectedVehicle;
+  DateTime _selectedDate = DateTime.now();
+  DateTime? _reminderDate;
+
+  /// Initializes the state of the dialog.
+  /// Pre-fills form fields if an existing log is being edited.
+  @override
+  void initState() {
+    super.initState();
+    _loadVehicles();
+    if (widget.log != null) {
+      _serviceController.text = widget.log!.serviceType;
+      _mileageController.text = widget.log!.mileage.toString();
+      _costController.text = widget.log!.cost?.toString() ?? '';
+      _notesController.text = widget.log!.notes ?? '';
+      _selectedVehicle = widget.log!.vehicleId;
+      _selectedDate = DateTime.parse(widget.log!.date);
+      if (widget.log!.nextReminderMileage != null) {
+        _reminderMileageController.text =
+            widget.log!.nextReminderMileage.toString();
+      }
+      if (widget.log!.nextReminderDate != null) {
+        _reminderDate = DateTime.parse(widget.log!.nextReminderDate!);
+      }
+    }
+  }
+
+  /// Loads the list of unique vehicle names from fuel logs to populate the dropdown.
+  Future<void> _loadVehicles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getStringList("fuel_logs") ?? [];
+    final allLogs = stored.map((e) => FuelLog.fromJson(jsonDecode(e))).toList();
+    final uniqueVehicles =
+        LinkedHashSet<String>.from(allLogs.map((log) => log.vehicleId))
+            .toList();
+    setState(() {
+      _vehicleList = uniqueVehicles;
+      if (widget.log == null && _vehicleList.isNotEmpty) {
+        _selectedVehicle = _vehicleList.first;
+      }
+    });
+  }
+
+  /// Cleans up the controllers when the widget is removed from the widget tree.
+  @override
+  void dispose() {
+    _serviceController.dispose();
+    _mileageController.dispose();
+    _costController.dispose();
+    _notesController.dispose();
+    _reminderMileageController.dispose();
+    super.dispose();
+  }
+
+  /// Validates the form and returns a new MaintenanceLog object on success.
+  void _onSave() {
+    if (_formKey.currentState!.validate()) {
+      final newLog = MaintenanceLog(
+        id: widget.log?.id,
+        vehicleId: _selectedVehicle!,
+        serviceType: _serviceController.text.trim(),
+        date: _selectedDate.toIso8601String(),
+        mileage: double.parse(_mileageController.text),
+        cost: double.tryParse(_costController.text),
+        notes: _notesController.text.trim(),
+        nextReminderMileage: double.tryParse(_reminderMileageController.text),
+        nextReminderDate: _reminderDate?.toIso8601String(),
+      );
+      Navigator.of(context).pop(newLog);
+    }
+  }
+
+  /// Builds the UI for the dialog.
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.log == null ? "Add Maintenance" : "Edit Maintenance"),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: _selectedVehicle,
+                items: _vehicleList
+                    .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedVehicle = value),
+                decoration: const InputDecoration(labelText: "Vehicle"),
+                validator: (v) => v == null ? "Please select a vehicle" : null,
+              ),
+              TextFormField(
+                controller: _serviceController,
+                decoration: const InputDecoration(labelText: "Service Type"),
+                validator: (v) =>
+                    v!.isEmpty ? "Please enter a service type" : null,
+              ),
+              TextFormField(
+                controller: _mileageController,
+                decoration: const InputDecoration(labelText: "Mileage (km)"),
+                keyboardType: TextInputType.number,
+                validator: (v) => v!.isEmpty ? "Please enter mileage" : null,
+              ),
+              TextFormField(
+                controller: _costController,
+                decoration: const InputDecoration(labelText: "Cost (Optional)"),
+                keyboardType: TextInputType.number,
+              ),
+              TextFormField(
+                controller: _notesController,
+                decoration:
+                    const InputDecoration(labelText: "Notes (Optional)"),
+              ),
+              const SizedBox(height: 20),
+              const Text("Next Reminder (Optional)",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              TextFormField(
+                controller: _reminderMileageController,
+                decoration: const InputDecoration(
+                    labelText: "At Mileage (e.g., 60000)"),
+                keyboardType: TextInputType.number,
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                    "On Date: ${_reminderDate == null ? 'Not Set' : DateFormat.yMMMd().format(_reminderDate!)}"),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _reminderDate ?? DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setState(() => _reminderDate = picked);
+                        }
+                      },
+                    ),
+                    if (_reminderDate != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        color: Colors.redAccent,
+                        onPressed: () {
+                          setState(() {
+                            _reminderDate = null;
+                          });
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Cancel")),
+        ElevatedButton(onPressed: _onSave, child: const Text("Save")),
+      ],
     );
   }
 }
