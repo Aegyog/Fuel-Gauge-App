@@ -1,6 +1,7 @@
-// Represents a fuel entry record for a specific vehicle.
-// Stores details like mileage, fuel amount, cost, and optional notes.
+// The data model for a single fuel log entry.
 class FuelLog {
+  final int? id; // Supabase ID
+  final String userId; // Foreign key to the user
   final double mileage;
   final double liters;
   final double pricePerLiter;
@@ -9,8 +10,9 @@ class FuelLog {
   final String? note;
   final String vehicleId;
 
-  // Constructor for creating a fuel log entry.
   FuelLog({
+    this.id,
+    required this.userId,
     required this.mileage,
     required this.liters,
     required this.pricePerLiter,
@@ -20,25 +22,29 @@ class FuelLog {
     this.note,
   });
 
-  // Converts a FuelLog object into a JSON map (for database or storage use).
+  // Converts a FuelLog object into a Map for Supabase.
   Map<String, dynamic> toJson() => {
+        'id': id,
+        'user_id': userId,
         'mileage': mileage,
         'liters': liters,
-        'pricePerLiter': pricePerLiter,
+        'price_per_liter': pricePerLiter,
         'cost': cost,
         'date': date,
         'note': note,
-        'vehicleId': vehicleId,
+        'vehicle_id': vehicleId,
       };
 
-  // Creates a FuelLog object from a JSON map (when reading from storage).
+  // Creates a FuelLog object from a Map received from Supabase.
   factory FuelLog.fromJson(Map<String, dynamic> json) => FuelLog(
+        id: json['id'],
+        userId: json['user_id'],
         mileage: json['mileage'],
         liters: json['liters'],
-        pricePerLiter: json['pricePerLiter'],
+        pricePerLiter: json['price_per_liter'],
         cost: json['cost'],
         date: json['date'],
         note: json['note'],
-        vehicleId: json['vehicleId'] ?? 'Default',
+        vehicleId: json['vehicle_id'],
       );
 }

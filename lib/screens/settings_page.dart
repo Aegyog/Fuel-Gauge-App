@@ -1,10 +1,11 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/theme_manager.dart';
+import '../utils/constants.dart';
+import '../main.dart';
 
-// Settings page with theme, units, and efficiency goal options
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -13,32 +14,32 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // Local settings state
+  // State variables for local settings
   bool _isMiles = false;
-  double? _efficiencyThreshold; // Nullable efficiency goal
+  double? _efficiencyThreshold;
   final _thresholdController = TextEditingController();
 
-  // Current user info
-  final _currentUser = FirebaseAuth.instance.currentUser;
+  // State variable for the current user
+  final _currentUser = supabase.auth.currentUser;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings(); // Load saved preferences
+    _loadSettings();
   }
 
   @override
   void dispose() {
-    _thresholdController.dispose(); // Clean up controller
+    _thresholdController.dispose();
     super.dispose();
   }
 
-  // Sign out from Firebase
+  // Method to log the user out
   Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
+    await supabase.auth.signOut();
+    // The AuthGate widget will handle navigation back to the LoginPage
   }
 
-  // Load settings from local storage
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
@@ -49,14 +50,12 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // Save preferred unit
   Future<void> _setUnit(bool isMiles) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isMiles', isMiles);
     setState(() => _isMiles = isMiles);
   }
 
-  // Save or clear efficiency goal
   Future<void> _setEfficiencyThreshold(double? value) async {
     final prefs = await SharedPreferences.getInstance();
     if (value == null) {
@@ -67,12 +66,10 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _efficiencyThreshold = value);
   }
 
-  // Show dialog to set or clear efficiency goal
   void _showThresholdDialog() {
     final isMiles = _isMiles;
     final unit = isMiles ? 'MPG' : 'km/L';
 
-    // Pre-fill field if a goal exists
     if (_efficiencyThreshold != null) {
       final currentDisplayValue =
           isMiles ? (_efficiencyThreshold! * 2.35215) : _efficiencyThreshold;
@@ -91,15 +88,12 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: InputDecoration(labelText: "Efficiency ($unit)"),
         ),
         actions: [
-          // Button to remove existing goal
           TextButton(
-            onPressed: () {
-              _setEfficiencyThreshold(null);
-              Navigator.pop(context);
-            },
-            child: const Text("Clear Goal"),
-          ),
-          // Save button
+              onPressed: () {
+                _setEfficiencyThreshold(null);
+                Navigator.pop(context);
+              },
+              child: const Text("Clear Goal")),
           ElevatedButton(
             onPressed: () {
               final newValue = double.tryParse(_thresholdController.text);
@@ -122,7 +116,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Confirm and reset local app data
   Future<void> _resetData(BuildContext context) async {
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
@@ -137,13 +130,12 @@ class _SettingsPageState extends State<SettingsPage> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Reset', style: TextStyle(color: Colors.redAccent)),
+            child:
+                const Text('Reset', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
     );
-
-    // If confirmed, clear local storage
     if (confirmed == true && mounted) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove("fuel_logs");
@@ -152,9 +144,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          backgroundColor: Colors.green,
-          content: Text("All local data has been reset."),
-        ),
+            backgroundColor: Colors.green,
+            content: Text("All local data has been reset.")),
       );
     }
   }
@@ -164,10 +155,10 @@ class _SettingsPageState extends State<SettingsPage> {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDarkTheme = themeManager.themeMode == ThemeMode.dark;
 
-    // Generate dynamic subtitle text
     String subtitleText;
     if (_efficiencyThreshold == null) {
-      subtitleText = "Not set. No fuel efficiency recommendations will be shown.";
+      subtitleText =
+          "Not set. No fuel efficiency recommendations will be shown.";
     } else {
       if (_isMiles) {
         final mpgThreshold = _efficiencyThreshold! * 2.35215;
@@ -185,11 +176,8 @@ class _SettingsPageState extends State<SettingsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Page title
             Text("Settings", style: Theme.of(context).textTheme.headlineLarge),
             const SizedBox(height: 24),
-
-            // Profile section
             const Text("PROFILE"),
             const SizedBox(height: 8),
             Card(
@@ -199,10 +187,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 subtitle: Text(_currentUser?.email ?? "Not available"),
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // General section: theme & unit settings
             const Text("GENERAL"),
             const SizedBox(height: 8),
             Card(
@@ -227,10 +212,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Efficiency goal section
             Card(
               child: ListTile(
                 leading: const Icon(Icons.track_changes),
@@ -240,10 +222,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 onTap: _showThresholdDialog,
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // Data & account management section
             const Text("DATA & ACCOUNT"),
             const SizedBox(height: 8),
             Card(

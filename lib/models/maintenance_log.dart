@@ -1,9 +1,7 @@
-import 'package:uuid/uuid.dart';
-
-// Represents a single maintenance record for a vehicle.
-// Includes service details, cost, mileage, and optional reminders.
+// The data model for a single maintenance log entry.
 class MaintenanceLog {
-  final String id;
+  final int? id; // Supabase ID
+  final String userId; // Foreign key to the user
   final String vehicleId;
   final String serviceType;
   final String date;
@@ -13,9 +11,9 @@ class MaintenanceLog {
   final double? nextReminderMileage;
   final String? nextReminderDate;
 
-  // Constructor automatically generates a unique ID if not provided.
   MaintenanceLog({
-    String? id,
+    this.id,
+    required this.userId,
     required this.vehicleId,
     required this.serviceType,
     required this.date,
@@ -24,31 +22,33 @@ class MaintenanceLog {
     this.notes,
     this.nextReminderMileage,
     this.nextReminderDate,
-  }) : id = id ?? const Uuid().v4();
+  });
 
-  // Converts the MaintenanceLog object to a JSON map for storage or transfer.
+  // Converts a MaintenanceLog object into a Map for Supabase.
   Map<String, dynamic> toJson() => {
         'id': id,
-        'vehicleId': vehicleId,
-        'serviceType': serviceType,
+        'user_id': userId,
+        'vehicle_id': vehicleId,
+        'service_type': serviceType,
         'date': date,
         'mileage': mileage,
         'cost': cost,
         'notes': notes,
-        'nextReminderMileage': nextReminderMileage,
-        'nextReminderDate': nextReminderDate,
+        'next_reminder_mileage': nextReminderMileage,
+        'next_reminder_date': nextReminderDate,
       };
 
-  // Creates a MaintenanceLog object from a JSON map (used when reading from storage).
+  // Creates a MaintenanceLog object from a Map received from Supabase.
   factory MaintenanceLog.fromJson(Map<String, dynamic> json) => MaintenanceLog(
         id: json['id'],
-        vehicleId: json['vehicleId'],
-        serviceType: json['serviceType'],
+        userId: json['user_id'],
+        vehicleId: json['vehicle_id'],
+        serviceType: json['service_type'],
         date: json['date'],
         mileage: json['mileage'],
         cost: json['cost'],
         notes: json['notes'],
-        nextReminderMileage: json['nextReminderMileage'],
-        nextReminderDate: json['nextReminderDate'],
+        nextReminderMileage: json['next_reminder_mileage'],
+        nextReminderDate: json['next_reminder_date'],
       );
 }

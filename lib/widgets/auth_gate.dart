@@ -1,5 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/login_page.dart';
 import '../screens/main_navigation.dart';
 
@@ -8,11 +8,11 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return StreamBuilder<AuthState>(
+      stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
-        // User is not signed in
-        if (!snapshot.hasData) {
+        if (!snapshot.hasData || snapshot.data?.session == null) {
+          // User is not signed in
           return const LoginPage();
         }
         // User is signed in

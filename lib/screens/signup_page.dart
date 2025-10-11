@@ -1,8 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/constants.dart';
+import '../main.dart';
 
-// Sign-up screen that allows users to register with email and password
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
 
@@ -11,38 +11,31 @@ class SignUpPage extends StatefulWidget {
 }
 
 class _SignUpPageState extends State<SignUpPage> {
-  // Text controllers for input fields
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-
-  // Firebase authentication instance
-  final _auth = FirebaseAuth.instance;
-
-  // Controls loading state while signing up
   bool _isLoading = false;
 
   @override
   void dispose() {
-    // Dispose controllers to prevent memory leaks
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  // Displays an alert dialog for error messages
-  Future<void> _showErrorDialog(String message) async {
+  Future<void> _showDialog(String title, String message) async {
+    if (!mounted) return;
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Sign Up Error'),
+          title: Text(title),
           content: Text(message),
           actions: <Widget>[
             TextButton(
               child: const Text('OK'),
-              onPressed: () => Navigator.of(context).pop(), // Closes dialog
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ],
         );
@@ -50,44 +43,30 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  // Handles user registration process
   Future<void> _signUp() async {
-    // Validate password and confirmation match
-    if (_passwordController.text.trim() !=
-        _confirmPasswordController.text.trim()) {
-      _showErrorDialog("Passwords do not match. Please try again.");
+    if (_passwordController.text != _confirmPasswordController.text) {
+      _showDialog("Sign Up Error", "Passwords do not match.");
       return;
     }
-
     if (!mounted) return;
-    setState(() => _isLoading = true); // Show loading spinner
+    setState(() => _isLoading = true);
 
     try {
-      // Attempt to create a new user using Firebase Authentication
-      await _auth.createUserWithEmailAndPassword(
+      await supabase.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-
-      // Return to the login page after successful registration
-      if (mounted) Navigator.of(context).pop();
-    } on FirebaseAuthException catch (e) {
-      // Handle common Firebase auth errors with specific messages
-      String message;
-      switch (e.code) {
-        case 'email-already-in-use':
-          message = 'An account already exists for that email.';
-          break;
-        case 'weak-password':
-          message = 'The password provided is too weak.';
-          break;
-        case 'invalid-email':
-          message = 'The email address is not valid.';
-          break;
-        default:
-          message = 'An unknown error occurred. Please try again.';
+      if (mounted) {
+        // Show a success message and pop the page to go back to login
+        _showDialog(
+          "Success!",
+          "A confirmation link has been sent to your email. Please verify your email before logging in.",
+        ).then((_) => Navigator.of(context).pop());
       }
-      _showErrorDialog(message);
+    } on AuthException catch (e) {
+      _showDialog("Sign Up Error", e.message);
+    } catch (e) {
+      _showDialog("Sign Up Error", "An unexpected error occurred.");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -97,43 +76,45 @@ class _SignUpPageState extends State<SignUpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Create Account"),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       ),
-
-      // Main content area
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Email input field
+              Text(
+                "Create an Account",
+                style: Theme.of(context).textTheme.headlineLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Get started with FuelGauge",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: kSecondaryTextColor,
+                    ),
+              ),
+              const SizedBox(height: 40),
               TextField(
                 controller: _emailController,
                 decoration: const InputDecoration(hintText: "Email"),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 12),
-
-              // Password input field
               TextField(
                 controller: _passwordController,
                 decoration: const InputDecoration(hintText: "Password"),
                 obscureText: true,
               ),
               const SizedBox(height: 12),
-
-              // Confirm password input field
               TextField(
                 controller: _confirmPasswordController,
                 decoration: const InputDecoration(hintText: "Confirm Password"),
                 obscureText: true,
               ),
               const SizedBox(height: 30),
-
-              // Show loading spinner or Sign-Up button
               if (_isLoading)
                 const CircularProgressIndicator()
               else

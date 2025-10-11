@@ -1,9 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'signup_page.dart';
 import '../utils/constants.dart';
+import '../main.dart';
 
-// Login screen where users sign in or reset passwords
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -12,24 +12,17 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // Controllers for email and password text fields
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
-  // Firebase authentication instance
-  final _auth = FirebaseAuth.instance;
-
-  bool _isLoading = false; // Tracks loading state during login
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    // Dispose controllers to free memory
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  // Show an alert dialog with title and message
   Future<void> _showDialog(String title, String message) async {
     if (!mounted) return;
     return showDialog<void>(
@@ -49,7 +42,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Displays a dialog for users to reset their password via email
   Future<void> _resetPassword() async {
     final emailForReset = TextEditingController(text: _emailController.text);
 
@@ -76,34 +68,25 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text("Cancel"),
             ),
-            // Send password reset link button
             ElevatedButton(
               onPressed: () async {
                 if (emailForReset.text.isEmpty) {
-                  // Show error if no email is entered
                   if (mounted) Navigator.of(context).pop();
                   _showDialog("Error", "Please enter an email address.");
                   return;
                 }
 
                 try {
-                  // Firebase sends reset link to provided email
-                  await _auth.sendPasswordResetEmail(
-                      email: emailForReset.text.trim());
+                  await supabase.auth
+                      .resetPasswordForEmail(emailForReset.text.trim());
 
                   if (mounted) Navigator.of(context).pop();
                   _showDialog("Success",
-                      "If an account exists for that email, a password reset link has been sent.");
-                } on FirebaseAuthException catch (e) {
-                  // Handle specific Firebase errors
+                      "Password reset link sent! Please check your email inbox and spam folder.");
+                } catch (e) {
                   if (mounted) Navigator.of(context).pop();
-                  if (e.code == 'user-not-found' || e.code == 'invalid-email') {
-                    _showDialog("Error",
-                        "This email is not registered. Please sign up first.");
-                  } else {
-                    _showDialog("Error",
-                        "Could not send reset link. Please try again.");
-                  }
+                  _showDialog("Error",
+                      "Could not send reset link. Please check the email address and try again.");
                 }
               },
               child: const Text("Send Link"),
@@ -114,37 +97,20 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Handles user login with Firebase Authentication
   Future<void> _login() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
-      // Attempt to sign in with email and password
-      await _auth.signInWithEmailAndPassword(
+      await supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-    } on FirebaseAuthException catch (e) {
-      // Handle common login errors
-      String message;
-      switch (e.code) {
-        case 'invalid-email':
-          message = 'The email address format is not valid.';
-          break;
-        case 'user-disabled':
-          message = 'This user account has been disabled.';
-          break;
-        case 'invalid-credential':
-          message =
-              "Incorrect email or password. Please try again or sign up if you don't have an account.";
-          break;
-        default:
-          message = 'An unknown error occurred. Please try again.';
-      }
-      _showDialog("Login Error", message);
+    } on AuthException catch (e) {
+      _showDialog("Login Error", e.message);
+    } catch (e) {
+      _showDialog("Login Error", "An unexpected error occurred.");
     } finally {
-      // Reset loading indicator when done
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -153,13 +119,11 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        // Scrollable content for smaller screens
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Title and subtitle
               Text(
                 "Welcome to FuelGauge",
                 style: Theme.of(context).textTheme.headlineLarge,
@@ -172,23 +136,17 @@ class _LoginPageState extends State<LoginPage> {
                     ),
               ),
               const SizedBox(height: 40),
-
-              // Email input field
               TextField(
                 controller: _emailController,
                 decoration: const InputDecoration(hintText: "Email"),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 12),
-
-              // Password input field
               TextField(
                 controller: _passwordController,
                 decoration: const InputDecoration(hintText: "Password"),
                 obscureText: true,
               ),
-
-              // Password reset option
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
@@ -200,14 +158,10 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // Show loader while signing in
               if (_isLoading)
                 const CircularProgressIndicator()
               else
-                // Login button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -225,10 +179,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-
               const SizedBox(height: 24),
-
-              // Navigation to sign-up page
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

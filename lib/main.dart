@@ -1,21 +1,23 @@
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/theme_manager.dart';
 import 'utils/constants.dart';
 import 'widgets/auth_gate.dart';
 
-// Ensures Flutter bindings are initialized before Firebase setup
+// Make the supabase client globally available
+final supabase = Supabase.instance.client;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase with platform-specific configuration
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+  // Initialize Supabase
+  await Supabase.initialize(
+    url: 'https://hcftaffezxdtideqzwke.supabase.co', // Replace with your URL
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjZnRhZmZlenhkdGlkZXF6d2tlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMTUzNzUsImV4cCI6MjA3NTY5MTM3NX0.SV2in4Nco5_qY_8_gQn6uUxSuDVkW0oe_qBLLtBn_tA', // Replace with your Key
   );
 
-  // Launch the app with ThemeManager as a provider for theme switching
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeManager(),
@@ -24,7 +26,6 @@ void main() async {
   );
 }
 
-// Root widget of the application
 class FuelTrackerApp extends StatelessWidget {
   const FuelTrackerApp({super.key});
 
@@ -35,8 +36,6 @@ class FuelTrackerApp extends StatelessWidget {
         return MaterialApp(
           title: 'FuelGauge',
           themeMode: themeManager.themeMode,
-
-          // Light theme configuration
           theme: ThemeData(
             brightness: Brightness.light,
             scaffoldBackgroundColor: kLightScaffoldBackgroundColor,
@@ -65,15 +64,13 @@ class FuelTrackerApp extends StatelessWidget {
                 borderSide: BorderSide.none,
               ),
             ),
-            bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            bottomNavigationBarTheme: const BottomNavigationBarThemeData(
               backgroundColor: kLightCardBackgroundColor,
               selectedItemColor: kAccentColor,
               unselectedItemColor: kSecondaryTextColor,
               elevation: 2,
             ),
           ),
-
-          // Dark theme configuration
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: kDarkScaffoldBackgroundColor,
@@ -92,16 +89,16 @@ class FuelTrackerApp extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            inputDecorationTheme: InputDecorationTheme(
+            inputDecorationTheme: const InputDecorationTheme(
               filled: true,
               fillColor: kDarkCardBackgroundColor,
-              hintStyle: const TextStyle(color: kSecondaryTextColor),
+              hintStyle: TextStyle(color: kSecondaryTextColor),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.all(Radius.circular(12)),
                 borderSide: BorderSide.none,
               ),
             ),
-            bottomNavigationBarTheme: BottomNavigationBarThemeData(
+            bottomNavigationBarTheme: const BottomNavigationBarThemeData(
               backgroundColor: kDarkCardBackgroundColor,
               selectedItemColor: kAccentColor,
               unselectedItemColor: kSecondaryTextColor,
