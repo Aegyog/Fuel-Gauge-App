@@ -81,12 +81,17 @@ class _LoginPageState extends State<LoginPage> {
                       .resetPasswordForEmail(emailForReset.text.trim());
 
                   if (mounted) Navigator.of(context).pop();
+                  // This is the secure, standard message.
                   _showDialog("Success",
-                      "Password reset link sent! Please check your email inbox and spam folder.");
+                      "If an account exists for that email, a password reset link has been sent. Please check your inbox and spam folder.");
+                } on AuthException catch (e) {
+                  if (mounted) Navigator.of(context).pop();
+                  // Provide a more specific error for bad input, but not for a user not found.
+                  _showDialog("Error", e.message);
                 } catch (e) {
                   if (mounted) Navigator.of(context).pop();
                   _showDialog("Error",
-                      "Could not send reset link. Please check the email address and try again.");
+                      "An unexpected error occurred. Please try again.");
                 }
               },
               child: const Text("Send Link"),
@@ -98,16 +103,34 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
+    // New client-side validation
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty) {
+      _showDialog("Login Error", "Please enter an email address.");
+      return;
+    }
+    if (password.isEmpty) {
+      _showDialog("Login Error", "Please enter your password.");
+      return;
+    }
+
     if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
       await supabase.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        email: email,
+        password: password,
       );
     } on AuthException catch (e) {
-      _showDialog("Login Error", e.message);
+      if (e.message == 'Invalid login credentials') {
+        _showDialog("Login Error",
+            "Incorrect email or password. Please try again or sign up if you don't have an account.");
+      } else {
+        _showDialog("Login Error", e.message);
+      }
     } catch (e) {
       _showDialog("Login Error", "An unexpected error occurred.");
     } finally {

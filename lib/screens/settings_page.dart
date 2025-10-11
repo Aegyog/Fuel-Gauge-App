@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../main.dart'; // To get the global supabase client
 import '../providers/theme_manager.dart';
-import '../utils/constants.dart';
-import '../main.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -19,7 +18,7 @@ class _SettingsPageState extends State<SettingsPage> {
   double? _efficiencyThreshold;
   final _thresholdController = TextEditingController();
 
-  // State variable for the current user
+  // MODIFIED: State variable for the current Supabase user
   final _currentUser = supabase.auth.currentUser;
 
   @override
@@ -34,10 +33,10 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  // Method to log the user out
+  // MODIFIED: Method to log the user out using Supabase
   Future<void> _logout() async {
     await supabase.auth.signOut();
-    // The AuthGate widget will handle navigation back to the LoginPage
+    // The AuthGate widget will automatically navigate back to the LoginPage
   }
 
   Future<void> _loadSettings() async {
@@ -137,6 +136,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
     if (confirmed == true && mounted) {
+      // NOTE: This only resets local data. We will need to update this to delete from Supabase.
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove("fuel_logs");
       await prefs.remove("selectedVehicle");

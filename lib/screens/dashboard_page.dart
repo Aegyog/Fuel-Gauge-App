@@ -173,7 +173,6 @@ class _DashboardPageState extends State<DashboardPage> {
         vehicleId: vehicleId,
       );
 
-      // Create a map, but remove null 'id' for insertion
       final Map<String, dynamic> logData = newLog.toJson();
       logData.remove('id');
 
@@ -204,7 +203,7 @@ class _DashboardPageState extends State<DashboardPage> {
     if (_filteredLogs.length < 2) return null;
 
     double totalDistance =
-        _filteredLogs.last.mileage + _filteredLogs.first.mileage;
+        _filteredLogs.last.mileage - _filteredLogs.first.mileage;
     double totalFuel = _filteredLogs
         .sublist(0, _filteredLogs.length - 1)
         .fold(0.0, (sum, log) => sum + log.liters);
@@ -235,7 +234,6 @@ class _DashboardPageState extends State<DashboardPage> {
         _vehicleController.clear();
       }
     });
-    // Re-check reminders for the new vehicle selection
     await _checkReminders();
   }
 
@@ -254,7 +252,6 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 16),
               _buildVehicleFilter(),
               const SizedBox(height: 16),
-              // Use FutureBuilder to handle loading state for stats
               FutureBuilder<List<FuelLog>>(
                 future: _logsFuture,
                 builder: (context, snapshot) {
