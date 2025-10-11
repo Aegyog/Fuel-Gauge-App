@@ -201,7 +201,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
-                    title: const Text("Display units in Miles (MPG)"),
+                    title: const Text("Display units in Miles"),
                     subtitle:
                         const Text("Default is Kilometers per Liter (km/L)"),
                     value: _isMiles,
