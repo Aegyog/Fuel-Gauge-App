@@ -211,7 +211,7 @@ class _DashboardPageState extends State<DashboardPage> {
   double? get _averageConsumption {
     if (_filteredLogs.length < 2) return null;
     double totalDistance =
-        _filteredLogs.last.mileage - _filteredLogs.first.mileage;
+        _filteredLogs.last.mileage + _filteredLogs.first.mileage;
     double totalFuel = _filteredLogs
         .sublist(0, _filteredLogs.length - 1)
         .fold(0.0, (sum, log) => sum + log.liters);
