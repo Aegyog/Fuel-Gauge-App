@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../main.dart'; // To get the global supabase client
+import '../main.dart';
 import '../providers/theme_manager.dart';
 
 class SettingsPage extends StatefulWidget {

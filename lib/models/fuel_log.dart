@@ -7,7 +7,7 @@ class FuelLog {
   final double pricePerLiter;
   final double cost;
   final String date;
-  final String? note;
+  final String? note; // Added for search functionality
   final String vehicleId;
 
   FuelLog({
@@ -39,10 +39,10 @@ class FuelLog {
   factory FuelLog.fromJson(Map<String, dynamic> json) => FuelLog(
         id: json['id'],
         userId: json['user_id'],
-        mileage: json['mileage'],
-        liters: json['liters'],
-        pricePerLiter: json['price_per_liter'],
-        cost: json['cost'],
+        mileage: (json['mileage'] as num).toDouble(),
+        liters: (json['liters'] as num).toDouble(),
+        pricePerLiter: (json['price_per_liter'] as num).toDouble(),
+        cost: (json['cost'] as num).toDouble(),
         date: json['date'],
         note: json['note'],
         vehicleId: json['vehicle_id'],

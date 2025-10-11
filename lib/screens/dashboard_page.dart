@@ -200,17 +200,16 @@ class _DashboardPageState extends State<DashboardPage> {
       _filteredLogs.fold(0.0, (sum, log) => sum + log.cost);
 
   double? get _averageConsumption {
-    if (_filteredLogs.length < 2) return null;
+    if (_filteredLogs.isEmpty) return null;
 
-    double totalDistance =
-        _filteredLogs.last.mileage - _filteredLogs.first.mileage;
-    double totalFuel = _filteredLogs
-        .sublist(0, _filteredLogs.length - 1)
-        .fold(0.0, (sum, log) => sum + log.liters);
+    double totalMileage =
+        _filteredLogs.fold(0.0, (sum, log) => sum + log.mileage);
+    double totalFuel = _filteredLogs.fold(0.0, (sum, log) => sum + log.liters);
 
-    if (totalDistance <= 0 || totalFuel <= 0) return null;
+    if (totalMileage <= 0 || totalFuel <= 0) return null;
 
-    double kmPerLiter = totalDistance / totalFuel;
+    double kmPerLiter = totalMileage / totalFuel;
+
     return _isMiles ? (kmPerLiter * 2.35215) : kmPerLiter;
   }
 
@@ -606,7 +605,7 @@ class _DashboardPageState extends State<DashboardPage> {
               labelStyle:
                   const TextStyle(color: kSecondaryTextColor, fontSize: 12),
               majorGridLines:
-                  MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(51)),
+                  MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(128)),
             ),
       primaryYAxis: NumericAxis(
         title: AxisTitle(
@@ -615,7 +614,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const TextStyle(color: kSecondaryTextColor, fontSize: 12)),
         labelStyle: const TextStyle(color: kSecondaryTextColor, fontSize: 12),
         majorGridLines:
-            MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(51)),
+            MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(128)),
       ),
       plotAreaBorderWidth: 0,
       series: <CartesianSeries>[series],
