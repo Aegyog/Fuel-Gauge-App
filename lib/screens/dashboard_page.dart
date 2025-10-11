@@ -211,7 +211,7 @@ class _DashboardPageState extends State<DashboardPage> {
   double? get _averageConsumption {
     if (_filteredLogs.length < 2) return null;
     double totalDistance =
-        _filteredLogs.last.mileage - _filteredLogs.first.mileage;
+        _filteredLogs.last.mileage + _filteredLogs.first.mileage;
     double totalFuel = _filteredLogs
         .sublist(0, _filteredLogs.length - 1)
         .fold(0.0, (sum, log) => sum + log.liters);
@@ -495,7 +495,8 @@ class _DashboardPageState extends State<DashboardPage> {
           value: _selectedVehicle,
           isExpanded: true,
           items: _vehicleList
-              .map((String value) => DropdownMenuItem(value: value, child: Text(value)))
+              .map((String value) =>
+                  DropdownMenuItem(value: value, child: Text(value)))
               .toList(),
           onChanged: (newValue) {
             if (newValue != null) _setSelectedVehicle(newValue);
@@ -573,8 +574,8 @@ class _DashboardPageState extends State<DashboardPage> {
           ? CategoryAxis(
               title: AxisTitle(
                   text: xAxisTitle,
-                  textStyle:
-                      const TextStyle(color: kSecondaryTextColor, fontSize: 12)),
+                  textStyle: const TextStyle(
+                      color: kSecondaryTextColor, fontSize: 12)),
               labelStyle:
                   const TextStyle(color: kSecondaryTextColor, fontSize: 12),
               majorGridLines: const MajorGridLines(width: 0),
@@ -582,8 +583,8 @@ class _DashboardPageState extends State<DashboardPage> {
           : NumericAxis(
               title: AxisTitle(
                   text: xAxisTitle,
-                  textStyle:
-                      const TextStyle(color: kSecondaryTextColor, fontSize: 12)),
+                  textStyle: const TextStyle(
+                      color: kSecondaryTextColor, fontSize: 12)),
               labelStyle:
                   const TextStyle(color: kSecondaryTextColor, fontSize: 12),
               majorGridLines:
