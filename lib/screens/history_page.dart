@@ -317,16 +317,29 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 12),
                   itemBuilder: (context, i) {
-                    final log = _displayLogs[i];
+                    final currentLog = _displayLogs[i];
+                    String consumptionText = 'N/A'; // Default value
+
+                    // Calculate consumption based on current log's mileage and liters.
+                    if (currentLog.liters > 0) {
+                      final double consumption =
+                          currentLog.mileage / currentLog.liters;
+                      consumptionText =
+                          '${consumption.toStringAsFixed(2)} km/L';
+                    }
+                    
+                    final formattedDate = DateFormat('MM/dd/yyyy')
+                        .format(DateTime.parse(currentLog.date));
+
                     return Card(
                       child: ListTile(
-                        onTap: () => _showEditDeleteDialog(log),
-                        onLongPress: () => _confirmDelete(log),
+                        onTap: () => _showEditDeleteDialog(currentLog),
+                        onLongPress: () => _confirmDelete(currentLog),
                         contentPadding: const EdgeInsets.symmetric(
                             vertical: 8, horizontal: 16),
                         leading: const Icon(Icons.directions_car, size: 30),
                         title: Text(
-                          "${log.vehicleId}: ₱${log.cost.toStringAsFixed(2)} for ${log.liters} L",
+                          "${currentLog.vehicleId}: ₱${currentLog.cost.toStringAsFixed(2)} for ${currentLog.liters} L",
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
@@ -334,11 +347,21 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                                "Mileage: ${log.mileage} km • Date: ${log.date}"),
-                            if (log.note != null && log.note!.isNotEmpty)
+                                "Mileage: ${currentLog.mileage} km • Date: $formattedDate"),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4.0),
+                              child: Text(
+                                "Average Consumption: $consumptionText",
+                                style: const TextStyle(
+                                    color: kSecondaryTextColor,
+                                    fontStyle: FontStyle.italic),
+                              ),
+                            ),
+                            if (currentLog.note != null &&
+                                currentLog.note!.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4.0),
-                                child: Text("Note: ${log.note}",
+                                child: Text("Note: ${currentLog.note}",
                                     style: const TextStyle(
                                         color: kSecondaryTextColor,
                                         fontStyle: FontStyle.italic)),
@@ -515,7 +538,7 @@ class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
                   leading: const Icon(Icons.build_circle_outlined),
                   title: Text("${log.vehicleId}: ${log.serviceType}"),
                   subtitle: Text(
-                      "On ${DateFormat.yMMMd().format(DateTime.parse(log.date))} at ${log.mileage} km"),
+                      "On ${DateFormat('MM/dd/yyyy').format(DateTime.parse(log.date))} at ${log.mileage} km"),
                   trailing: log.cost != null && log.cost! > 0
                       ? Text("₱${log.cost?.toStringAsFixed(2)}")
                       : null,
@@ -723,3 +746,4 @@ class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
     );
   }
 }
+
