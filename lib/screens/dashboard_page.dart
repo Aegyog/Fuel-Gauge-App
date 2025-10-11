@@ -52,12 +52,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    // FIX 1: Initialize the late field synchronously to prevent LateInitializationError.
-    // The FutureBuilder will start listening to this Future immediately on build.
     _logsFuture = _loadLogs();
-
-    // Asynchronously load other settings and reminders that update the state
-    // but are not part of the main FutureBuilder's initial data.
     _loadSettings();
     _checkReminders();
   }
@@ -73,20 +68,15 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
-  // This function is now primarily for pull-to-refresh.
   Future<void> _refreshData() async {
-    // We create a new Future by calling _loadLogs() again.
     final newLogsFuture = _loadLogs();
 
-    // FIX 2: Add check before setState to prevent 'disposed RenderObject' error.
     if (mounted) {
-      // Re-assigning _logsFuture within setState triggers the FutureBuilder to rebuild.
       setState(() {
         _logsFuture = newLogsFuture;
       });
     }
 
-    // Await the new future to complete before refreshing other data.
     await newLogsFuture;
     await _loadSettings();
     await _checkReminders();
@@ -94,7 +84,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    // FIX 2: Always check if the widget is still in the tree before updating state.
     if (mounted) {
       setState(() {
         _isMiles = prefs.getBool('isMiles') ?? false;
@@ -113,7 +102,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
     final logs = response.map((data) => FuelLog.fromJson(data)).toList();
 
-    // FIX 2: Guard state updates with a mounted check.
     if (mounted) {
       setState(() {
         _allFuelLogs = logs;
@@ -163,7 +151,6 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     }
 
-    // FIX 2: Guard state updates with a mounted check.
     if (mounted) {
       setState(() {
         _dueReminders = due;
@@ -189,10 +176,7 @@ class _DashboardPageState extends State<DashboardPage> {
         liters: liters,
         pricePerLiter: price,
         cost: liters * price,
-        date: _selectedDate
-            .toIso8601String()
-            .split("T")
-            .first, // <-- TYPO FIX HERE
+        date: _selectedDate.toIso8601String().split("T").first,
         note: note.isNotEmpty ? note : null,
         vehicleId: vehicleId,
       );
@@ -202,7 +186,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
       await supabase.from('fuel_logs').insert(logData);
 
-      // FIX 2: Check mounted state after an async gap before updating the UI.
       if (!mounted) return;
 
       _mileageController.clear();
@@ -211,9 +194,8 @@ class _DashboardPageState extends State<DashboardPage> {
       _noteController.clear();
       _vehicleController.clear();
       FocusScope.of(context).unfocus();
-      await _refreshData(); // Use await to ensure data is fresh before user can act again.
+      await _refreshData();
     } else {
-      // FIX 2: Guard context-based operations.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -234,7 +216,6 @@ class _DashboardPageState extends State<DashboardPage> {
     final lastLog = _filteredLogs.last;
 
     final totalDistance = lastLog.mileage - firstLog.mileage;
-    // Sum of all liters except for the very first entry.
     final totalFuel =
         _filteredLogs.skip(1).fold(0.0, (sum, log) => sum + log.liters);
 
@@ -265,7 +246,6 @@ class _DashboardPageState extends State<DashboardPage> {
         _vehicleController.clear();
       }
     });
-    // Refresh reminders when vehicle changes.
     await _checkReminders();
   }
 
@@ -275,8 +255,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: RefreshIndicator(
         onRefresh: _refreshData,
         child: SingleChildScrollView(
-          physics:
-              const AlwaysScrollableScrollPhysics(), // Ensures refresh indicator works even when content is short
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,6 +466,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                   markerSettings:
                                       const MarkerSettings(isVisible: true),
                                   color: kAccentColor,
+                                  dataLabelSettings:
+                                      const DataLabelSettings(isVisible: true),
                                 )),
                             _buildChart(
                                 "Fuel Cost vs Total Mileage",
@@ -499,6 +480,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                   markerSettings:
                                       const MarkerSettings(isVisible: true),
                                   color: kChartLineColor,
+                                  dataLabelSettings:
+                                      const DataLabelSettings(isVisible: true),
                                 )),
                             _buildChart(
                                 "Monthly Spend",
