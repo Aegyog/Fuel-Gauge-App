@@ -8,6 +8,10 @@ import '../models/fuel_log.dart';
 import '../models/maintenance_log.dart';
 import '../utils/constants.dart';
 
+// Conversion constants
+const double kmPerMile = 1.60934;
+const double litersPerGallon = 3.78541;
+
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -52,9 +56,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    _logsFuture = _loadLogs();
-    _loadSettings();
-    _checkReminders();
+    _logsFuture = _loadInitialData();
   }
 
   @override
@@ -68,18 +70,19 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
-  Future<void> _refreshData() async {
-    final newLogsFuture = _loadLogs();
-
-    if (mounted) {
-      setState(() {
-        _logsFuture = newLogsFuture;
-      });
-    }
-
-    await newLogsFuture;
+  /// The primary method for loading all data, called on init and refresh.
+  Future<List<FuelLog>> _loadInitialData() async {
     await _loadSettings();
+    final logs = await _loadLogs();
     await _checkReminders();
+    return logs;
+  }
+
+  /// Called by RefreshIndicator to trigger a full data reload.
+  Future<void> _refreshData() async {
+    setState(() {
+      _logsFuture = _loadInitialData();
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -93,12 +96,16 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<List<FuelLog>> _loadLogs() async {
+    // Safety check to ensure user is logged in before fetching data
+    if (supabase.auth.currentUser == null) {
+      return []; // Return empty list if no user
+    }
     final userId = supabase.auth.currentUser!.id;
     final response = await supabase
         .from('fuel_logs')
         .select()
         .eq('user_id', userId)
-        .order('mileage', ascending: true);
+        .order('mileage', ascending: true); // Correctly sort by mileage
 
     final logs = response.map((data) => FuelLog.fromJson(data)).toList();
 
@@ -118,6 +125,11 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _checkReminders() async {
+    // Safety check to ensure user is logged in
+    if (supabase.auth.currentUser == null) {
+      if (mounted) setState(() => _dueReminders = []);
+      return;
+    }
     final userId = supabase.auth.currentUser!.id;
     final response =
         await supabase.from('maintenance_logs').select().eq('user_id', userId);
@@ -159,23 +171,41 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _addLog() async {
-    final mileage = double.tryParse(_mileageController.text);
-    final liters = double.tryParse(_litersController.text);
-    final price = double.tryParse(_priceController.text);
+    final mileageInput = double.tryParse(_mileageController.text);
+    final volumeInput = double.tryParse(_litersController.text);
+    final priceInput = double.tryParse(_priceController.text);
     final note = _noteController.text;
     final vehicleId = _vehicleController.text.trim();
+
+    // Safety check for user
+    if (supabase.auth.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            backgroundColor: Colors.redAccent,
+            content: Text("You must be logged in to add a log.")),
+      );
+      return;
+    }
     final userId = supabase.auth.currentUser!.id;
 
-    if (mileage != null &&
-        liters != null &&
-        price != null &&
+    if (mileageInput != null &&
+        volumeInput != null &&
+        priceInput != null &&
         vehicleId.isNotEmpty) {
+      // Convert inputs to metric if the user is in 'miles' mode
+      double mileageToSave =
+          _isMiles ? (mileageInput * kmPerMile) : mileageInput;
+      double litersToSave =
+          _isMiles ? (volumeInput * litersPerGallon) : volumeInput;
+      double pricePerLiterToSave =
+          _isMiles ? (priceInput / litersPerGallon) : priceInput;
+
       final newLog = FuelLog(
         userId: userId,
-        mileage: mileage,
-        liters: liters,
-        pricePerLiter: price,
-        cost: liters * price,
+        mileage: mileageToSave,
+        liters: litersToSave,
+        pricePerLiter: pricePerLiterToSave,
+        cost: litersToSave * pricePerLiterToSave,
         date: _selectedDate.toIso8601String().split("T").first,
         note: note.isNotEmpty ? note : null,
         vehicleId: vehicleId,
@@ -186,15 +216,13 @@ class _DashboardPageState extends State<DashboardPage> {
 
       await supabase.from('fuel_logs').insert(logData);
 
-      if (!mounted) return;
-
       _mileageController.clear();
       _litersController.clear();
       _priceController.clear();
       _noteController.clear();
       _vehicleController.clear();
-      FocusScope.of(context).unfocus();
-      await _refreshData();
+      if (mounted) FocusScope.of(context).unfocus();
+      _refreshData();
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -210,18 +238,15 @@ class _DashboardPageState extends State<DashboardPage> {
       _filteredLogs.fold(0.0, (sum, log) => sum + log.cost);
 
   double? get _averageConsumption {
-    if (_filteredLogs.length < 2) return null;
+    if (_filteredLogs.isEmpty) return null;
 
-    final firstLog = _filteredLogs.first;
-    final lastLog = _filteredLogs.last;
+    double totalMileage =
+        _filteredLogs.fold(0.0, (sum, log) => sum + log.mileage);
+    double totalFuel = _filteredLogs.fold(0.0, (sum, log) => sum + log.liters);
 
-    final totalDistance = lastLog.mileage - firstLog.mileage;
-    final totalFuel =
-        _filteredLogs.skip(1).fold(0.0, (sum, log) => sum + log.liters);
+    if (totalMileage <= 0 || totalFuel <= 0) return null;
 
-    if (totalDistance <= 0 || totalFuel <= 0) return null;
-
-    double kmPerLiter = totalDistance / totalFuel;
+    double kmPerLiter = totalMileage / totalFuel;
 
     return _isMiles ? (kmPerLiter * 2.35215) : kmPerLiter;
   }
@@ -289,10 +314,15 @@ class _DashboardPageState extends State<DashboardPage> {
                   if (_efficiencyThreshold == null) {
                     recommendationMessage =
                         "Set an efficiency goal in Settings to get performance recommendations.";
-                  } else if (avgConsumption != null &&
-                      avgConsumption < _efficiencyThreshold!) {
-                    recommendationMessage =
-                        "You're below your efficiency goal. Consider checking tire pressure and avoiding rapid acceleration.";
+                  } else {
+                    final thresholdInCurrentUnit = _isMiles
+                        ? (_efficiencyThreshold! * 2.35215)
+                        : _efficiencyThreshold!;
+                    if (avgConsumption != null &&
+                        avgConsumption < thresholdInCurrentUnit) {
+                      recommendationMessage =
+                          "You may be driving too aggressively. Consider checking tire pressure and avoiding rapid acceleration.";
+                    }
                   }
 
                   return Column(
@@ -368,23 +398,22 @@ class _DashboardPageState extends State<DashboardPage> {
                 controller: _mileageController,
                 decoration: InputDecoration(
                     hintText: "Total Mileage (${_isMiles ? 'mi' : 'km'})"),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _litersController,
-                decoration:
-                    const InputDecoration(hintText: "Fuel Consumed (Liters)"),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                    hintText:
+                        "Fuel Consumed (${_isMiles ? 'Gallons' : 'Liters'})"),
+                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _priceController,
-                decoration: const InputDecoration(hintText: "Price per Liter"),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                    hintText: "Price per (${_isMiles ? 'Gallon' : 'Liter'})"),
+                keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
               TextField(
@@ -457,31 +486,64 @@ class _DashboardPageState extends State<DashboardPage> {
                           children: [
                             _buildChart(
                                 "Fuel Consumed vs Total Mileage",
-                                "Mileage",
-                                "Liters",
+                                "Mileage (${_isMiles ? 'mi' : 'km'})",
+                                "Fuel Added (${_isMiles ? 'gallons' : 'L'})",
                                 LineSeries<FuelLog, double>(
                                   dataSource: _filteredLogs,
-                                  xValueMapper: (log, _) => log.mileage,
-                                  yValueMapper: (log, _) => log.liters,
+                                  xValueMapper: (log, _) => _isMiles
+                                      ? (log.mileage / kmPerMile)
+                                      : log.mileage,
+                                  yValueMapper: (log, _) => _isMiles
+                                      ? (log.liters / litersPerGallon)
+                                      : log.liters,
                                   markerSettings:
                                       const MarkerSettings(isVisible: true),
                                   color: kAccentColor,
-                                  dataLabelSettings:
-                                      const DataLabelSettings(isVisible: true),
+                                  dataLabelSettings: DataLabelSettings(
+                                      isVisible: true,
+                                      builder: (dynamic data,
+                                          dynamic point,
+                                          dynamic series,
+                                          int pointIndex,
+                                          int seriesIndex) {
+                                        return Text(point.y.toStringAsFixed(2),
+                                            style: TextStyle(
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.color,
+                                                fontSize: 10));
+                                      }),
                                 )),
                             _buildChart(
                                 "Fuel Cost vs Total Mileage",
-                                "Mileage",
+                                "Mileage (${_isMiles ? 'mi' : 'km'})",
                                 "Fuel Cost (₱)",
                                 LineSeries<FuelLog, double>(
                                   dataSource: _filteredLogs,
-                                  xValueMapper: (log, _) => log.mileage,
+                                  xValueMapper: (log, _) => _isMiles
+                                      ? (log.mileage / kmPerMile)
+                                      : log.mileage,
                                   yValueMapper: (log, _) => log.cost,
                                   markerSettings:
                                       const MarkerSettings(isVisible: true),
                                   color: kChartLineColor,
-                                  dataLabelSettings:
-                                      const DataLabelSettings(isVisible: true),
+                                  dataLabelSettings: DataLabelSettings(
+                                      isVisible: true,
+                                      builder: (dynamic data,
+                                          dynamic point,
+                                          dynamic series,
+                                          int pointIndex,
+                                          int seriesIndex) {
+                                        return Text(
+                                            '₱${point.y.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.color,
+                                                fontSize: 10));
+                                      }),
                                 )),
                             _buildChart(
                                 "Monthly Spend",
@@ -494,13 +556,22 @@ class _DashboardPageState extends State<DashboardPage> {
                                   color: kAccentColor,
                                   dataLabelSettings: DataLabelSettings(
                                     isVisible: true,
-                                    textStyle: TextStyle(
-                                      fontSize: 10,
-                                      color: Theme.of(context).brightness ==
-                                              Brightness.dark
-                                          ? kPrimaryTextColorDark
-                                          : kPrimaryTextColorLight,
-                                    ),
+                                    builder: (dynamic data,
+                                        dynamic point,
+                                        dynamic series,
+                                        int pointIndex,
+                                        int seriesIndex) {
+                                      return Text(
+                                          '₱${point.y.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            color:
+                                                Theme.of(context).brightness ==
+                                                        Brightness.dark
+                                                    ? kPrimaryTextColorDark
+                                                    : kPrimaryTextColorLight,
+                                            fontSize: 10,
+                                          ));
+                                    },
                                   ),
                                 ),
                                 isCategory: true),
@@ -524,7 +595,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).inputDecorationTheme.fillColor,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(12),
       ),
       child: DropdownButtonHideUnderline(
@@ -626,7 +697,7 @@ class _DashboardPageState extends State<DashboardPage> {
               labelStyle:
                   const TextStyle(color: kSecondaryTextColor, fontSize: 12),
               majorGridLines:
-                  MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(128)),
+                  MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(51)),
             ),
       primaryYAxis: NumericAxis(
         title: AxisTitle(
@@ -635,7 +706,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const TextStyle(color: kSecondaryTextColor, fontSize: 12)),
         labelStyle: const TextStyle(color: kSecondaryTextColor, fontSize: 12),
         majorGridLines:
-            MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(128)),
+            MajorGridLines(width: 0.5, color: Colors.grey.withAlpha(51)),
       ),
       plotAreaBorderWidth: 0,
       series: <CartesianSeries>[series],

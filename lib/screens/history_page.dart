@@ -1,10 +1,14 @@
 import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../models/fuel_log.dart';
 import '../models/maintenance_log.dart';
 import '../utils/constants.dart';
+
+const double kmPerMile = 1.60934;
+const double litersPerGallon = 3.78541;
 
 // Main screen showing both Fuel and Maintenance history tabs
 class HistoryPage extends StatefulWidget {
@@ -80,12 +84,13 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
 
   List<String> _vehicleList = ['All Vehicles'];
   String _selectedVehicle = 'All Vehicles';
+  bool _isMiles = false;
 
   /// Initializes the state for the fuel history tab.
   @override
   void initState() {
     super.initState();
-    _logsFuture = _loadLogs(); // Load saved fuel logs
+    _logsFuture = _loadSettingsAndLogs(); // Load saved fuel logs
     _searchController.addListener(_filterLogs); // Listen for search updates
   }
 
@@ -95,6 +100,20 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
     _searchController.removeListener(_filterLogs);
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<List<FuelLog>> _loadSettingsAndLogs() async {
+    await _loadSettings();
+    return _loadLogs();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _isMiles = prefs.getBool('isMiles') ?? false;
+      });
+    }
   }
 
   /// Loads all saved fuel logs from the Supabase database.
@@ -126,7 +145,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
   /// Refreshes the data from the database.
   void _refreshData() {
     setState(() {
-      _logsFuture = _loadLogs();
+      _logsFuture = _loadSettingsAndLogs();
     });
   }
 
@@ -157,12 +176,20 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
 
   /// Shows a dialog for editing or deleting a selected fuel log entry.
   void _showEditDeleteDialog(FuelLog logToEdit) async {
+    final displayMileage =
+        _isMiles ? (logToEdit.mileage / kmPerMile) : logToEdit.mileage;
+    final displayVolume =
+        _isMiles ? (logToEdit.liters / litersPerGallon) : logToEdit.liters;
+    final displayPrice = _isMiles
+        ? (logToEdit.pricePerLiter * litersPerGallon)
+        : logToEdit.pricePerLiter;
+
     final mileageController =
-        TextEditingController(text: logToEdit.mileage.toString());
+        TextEditingController(text: displayMileage.toStringAsFixed(2));
     final litersController =
-        TextEditingController(text: logToEdit.liters.toString());
+        TextEditingController(text: displayVolume.toStringAsFixed(2));
     final priceController =
-        TextEditingController(text: logToEdit.pricePerLiter.toString());
+        TextEditingController(text: displayPrice.toStringAsFixed(2));
     final noteController = TextEditingController(text: logToEdit.note);
     final vehicleController = TextEditingController(text: logToEdit.vehicleId);
     DateTime selectedDate = DateTime.parse(logToEdit.date);
@@ -182,14 +209,18 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
                         const InputDecoration(labelText: "Vehicle Name")),
                 TextField(
                     controller: mileageController,
-                    decoration: const InputDecoration(labelText: "Mileage")),
+                    decoration: InputDecoration(
+                        labelText: "Mileage (${_isMiles ? 'mi' : 'km'})")),
                 TextField(
                     controller: litersController,
-                    decoration: const InputDecoration(labelText: "Liters")),
+                    decoration: InputDecoration(
+                        labelText:
+                            "Fuel Consumed (${_isMiles ? 'gallons' : 'Liters'})")),
                 TextField(
                     controller: priceController,
-                    decoration:
-                        const InputDecoration(labelText: "Price/Liter")),
+                    decoration: InputDecoration(
+                        labelText:
+                            "Price per ${_isMiles ? 'Gallon' : 'Liter'}")),
                 TextField(
                     controller: noteController,
                     decoration: const InputDecoration(labelText: "Note")),
@@ -211,15 +242,23 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
             ),
             ElevatedButton(
               onPressed: () {
+                final mileageInput = double.parse(mileageController.text);
+                final volumeInput = double.parse(litersController.text);
+                final priceInput = double.parse(priceController.text);
+
                 // Return updated log
                 final log = FuelLog(
                   id: logToEdit.id,
                   userId: logToEdit.userId,
-                  mileage: double.parse(mileageController.text),
-                  liters: double.parse(litersController.text),
-                  pricePerLiter: double.parse(priceController.text),
-                  cost: double.parse(litersController.text) *
-                      double.parse(priceController.text),
+                  mileage: _isMiles ? (mileageInput * kmPerMile) : mileageInput,
+                  liters:
+                      _isMiles ? (volumeInput * litersPerGallon) : volumeInput,
+                  pricePerLiter:
+                      _isMiles ? (priceInput / litersPerGallon) : priceInput,
+                  cost: (_isMiles
+                          ? (volumeInput * litersPerGallon)
+                          : volumeInput) *
+                      (_isMiles ? (priceInput / litersPerGallon) : priceInput),
                   date: selectedDate.toIso8601String().split('T').first,
                   note: noteController.text,
                   vehicleId: vehicleController.text.trim(),
@@ -324,12 +363,26 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
                     if (currentLog.liters > 0) {
                       final double consumption =
                           currentLog.mileage / currentLog.liters;
-                      consumptionText =
-                          '${consumption.toStringAsFixed(2)} km/L';
+                      if (_isMiles) {
+                        final double mpg = consumption * 2.35215;
+                        consumptionText = '${mpg.toStringAsFixed(2)} MPG';
+                      } else {
+                        consumptionText =
+                            '${consumption.toStringAsFixed(2)} km/L';
+                      }
                     }
-                    
+
                     final formattedDate = DateFormat('MM/dd/yyyy')
                         .format(DateTime.parse(currentLog.date));
+
+                    final displayMileage = _isMiles
+                        ? (currentLog.mileage / kmPerMile)
+                        : currentLog.mileage;
+                    final displayLiters = _isMiles
+                        ? (currentLog.liters / litersPerGallon)
+                        : currentLog.liters;
+                    final mileageUnit = _isMiles ? 'mi' : 'km';
+                    final volumeUnit = _isMiles ? 'gal' : 'L';
 
                     return Card(
                       child: ListTile(
@@ -339,7 +392,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
                             vertical: 8, horizontal: 16),
                         leading: const Icon(Icons.directions_car, size: 30),
                         title: Text(
-                          "${currentLog.vehicleId}: ₱${currentLog.cost.toStringAsFixed(2)} for ${currentLog.liters} L",
+                          "${currentLog.vehicleId}: ₱${currentLog.cost.toStringAsFixed(2)} for ${displayLiters.toStringAsFixed(2)} $volumeUnit",
                           style: const TextStyle(
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
@@ -347,7 +400,7 @@ class _FuelHistoryTabState extends State<_FuelHistoryTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                                "Mileage: ${currentLog.mileage} km • Date: $formattedDate"),
+                                "Mileage: ${displayMileage.toStringAsFixed(1)} $mileageUnit • Date: $formattedDate"),
                             Padding(
                               padding: const EdgeInsets.only(top: 4.0),
                               child: Text(
@@ -422,18 +475,33 @@ class _MaintenanceHistoryTab extends StatefulWidget {
 
 class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
   late Future<List<MaintenanceLog>> _logsFuture;
+  bool _isMiles = false;
 
   /// Initializes the state for the maintenance history tab.
   @override
   void initState() {
     super.initState();
-    _logsFuture = _loadMaintenanceLogs();
+    _logsFuture = _loadSettingsAndLogs();
+  }
+
+  Future<List<MaintenanceLog>> _loadSettingsAndLogs() async {
+    await _loadSettings();
+    return _loadMaintenanceLogs();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _isMiles = prefs.getBool('isMiles') ?? false;
+      });
+    }
   }
 
   /// Refreshes the data from the database.
   Future<void> _refreshData() async {
     setState(() {
-      _logsFuture = _loadMaintenanceLogs();
+      _logsFuture = _loadSettingsAndLogs();
     });
   }
 
@@ -454,7 +522,7 @@ class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
     if (!mounted) return;
     final result = await showDialog<MaintenanceLog>(
       context: context,
-      builder: (context) => _AddMaintenanceDialog(log: log),
+      builder: (context) => _AddMaintenanceDialog(log: log, isMiles: _isMiles),
     );
 
     if (result != null) {
@@ -533,12 +601,15 @@ class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final log = logs[index];
+              final displayMileage =
+                  _isMiles ? (log.mileage / kmPerMile) : log.mileage;
+              final mileageUnit = _isMiles ? 'mi' : 'km';
               return Card(
                 child: ListTile(
                   leading: const Icon(Icons.build_circle_outlined),
                   title: Text("${log.vehicleId}: ${log.serviceType}"),
                   subtitle: Text(
-                      "On ${DateFormat('MM/dd/yyyy').format(DateTime.parse(log.date))} at ${log.mileage} km"),
+                      "On ${DateFormat('MM/dd/yyyy').format(DateTime.parse(log.date))} at ${displayMileage.toStringAsFixed(1)} $mileageUnit"),
                   trailing: log.cost != null && log.cost! > 0
                       ? Text("₱${log.cost?.toStringAsFixed(2)}")
                       : null,
@@ -562,7 +633,8 @@ class __MaintenanceHistoryTabState extends State<_MaintenanceHistoryTab> {
 // --- DIALOG FOR ADDING/EDITING MAINTENANCE ---
 class _AddMaintenanceDialog extends StatefulWidget {
   final MaintenanceLog? log;
-  const _AddMaintenanceDialog({this.log});
+  final bool isMiles;
+  const _AddMaintenanceDialog({this.log, required this.isMiles});
 
   @override
   State<_AddMaintenanceDialog> createState() => _AddMaintenanceDialogState();
@@ -587,18 +659,23 @@ class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
     super.initState();
     _loadVehicles();
     if (widget.log != null) {
-      _serviceController.text = widget.log!.serviceType;
-      _mileageController.text = widget.log!.mileage.toString();
-      _costController.text = widget.log!.cost?.toString() ?? '';
-      _notesController.text = widget.log!.notes ?? '';
-      _selectedVehicle = widget.log!.vehicleId;
-      _selectedDate = DateTime.parse(widget.log!.date);
-      if (widget.log!.nextReminderMileage != null) {
-        _reminderMileageController.text =
-            widget.log!.nextReminderMileage.toString();
+      final log = widget.log!;
+      _serviceController.text = log.serviceType;
+      _mileageController.text =
+          (widget.isMiles ? (log.mileage / kmPerMile) : log.mileage)
+              .toStringAsFixed(1);
+      _costController.text = log.cost?.toString() ?? '';
+      _notesController.text = log.notes ?? '';
+      _selectedVehicle = log.vehicleId;
+      _selectedDate = DateTime.parse(log.date);
+      if (log.nextReminderMileage != null) {
+        _reminderMileageController.text = (widget.isMiles
+                ? (log.nextReminderMileage! / kmPerMile)
+                : log.nextReminderMileage!)
+            .toStringAsFixed(1);
       }
-      if (widget.log!.nextReminderDate != null) {
-        _reminderDate = DateTime.parse(widget.log!.nextReminderDate!);
+      if (log.nextReminderDate != null) {
+        _reminderDate = DateTime.parse(log.nextReminderDate!);
       }
     }
   }
@@ -639,16 +716,24 @@ class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
   void _onSave() {
     if (_formKey.currentState!.validate()) {
       final userId = supabase.auth.currentUser!.id;
+      final mileageInput = double.parse(_mileageController.text);
+      final reminderMileageInput =
+          double.tryParse(_reminderMileageController.text);
+
       final newLog = MaintenanceLog(
         id: widget.log?.id,
         userId: userId,
         vehicleId: _selectedVehicle!,
         serviceType: _serviceController.text.trim(),
         date: _selectedDate.toIso8601String(),
-        mileage: double.parse(_mileageController.text),
+        mileage: widget.isMiles ? (mileageInput * kmPerMile) : mileageInput,
         cost: double.tryParse(_costController.text),
         notes: _notesController.text.trim(),
-        nextReminderMileage: double.tryParse(_reminderMileageController.text),
+        nextReminderMileage: reminderMileageInput != null
+            ? (widget.isMiles
+                ? (reminderMileageInput * kmPerMile)
+                : reminderMileageInput)
+            : null,
         nextReminderDate: _reminderDate?.toIso8601String(),
       );
       Navigator.of(context).pop(newLog);
@@ -658,6 +743,7 @@ class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
   /// Builds the UI for the add/edit maintenance dialog.
   @override
   Widget build(BuildContext context) {
+    final mileageUnit = widget.isMiles ? 'mi' : 'km';
     return AlertDialog(
       title: Text(widget.log == null ? "Add Maintenance" : "Edit Maintenance"),
       content: Form(
@@ -683,7 +769,8 @@ class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
               ),
               TextFormField(
                 controller: _mileageController,
-                decoration: const InputDecoration(labelText: "Mileage (km)"),
+                decoration:
+                    InputDecoration(labelText: "Mileage ($mileageUnit)"),
                 keyboardType: TextInputType.number,
                 validator: (v) => v!.isEmpty ? "Please enter mileage" : null,
               ),
@@ -702,8 +789,8 @@ class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               TextFormField(
                 controller: _reminderMileageController,
-                decoration: const InputDecoration(
-                    labelText: "At Mileage (e.g., 60000)"),
+                decoration: InputDecoration(
+                    labelText: "At Mileage (e.g., 60000 $mileageUnit)"),
                 keyboardType: TextInputType.number,
               ),
               ListTile(
@@ -746,4 +833,3 @@ class _AddMaintenanceDialogState extends State<_AddMaintenanceDialog> {
     );
   }
 }
-
