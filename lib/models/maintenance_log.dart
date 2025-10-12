@@ -45,10 +45,11 @@ class MaintenanceLog {
         vehicleId: json['vehicle_id'],
         serviceType: json['service_type'],
         date: json['date'],
-        mileage: json['mileage'],
-        cost: json['cost'],
+        mileage: (json['mileage'] as num).toDouble(),
+        cost: (json['cost'] as num?)?.toDouble(),
         notes: json['notes'],
-        nextReminderMileage: json['next_reminder_mileage'],
+        nextReminderMileage:
+            (json['next_reminder_mileage'] as num?)?.toDouble(),
         nextReminderDate: json['next_reminder_date'],
       );
 }
