@@ -114,14 +114,15 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _resetData(BuildContext context) async {
+  // MODIFIED: This function now deletes all data from the user's account in Supabase.
+  Future<void> _resetData() async {
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Confirm Reset'),
         content: const Text(
-            'Are you sure you want to delete all your local fuel logs? This action cannot be undone.'),
+            'Are you sure you want to delete all of your fuel and maintenance logs? This action cannot be undone.'),
         actions: <Widget>[
           TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -135,17 +136,34 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
     if (confirmed == true && mounted) {
-      // NOTE: This only resets local data. We will need to update this to delete from Supabase.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove("fuel_logs");
-      await prefs.remove("selectedVehicle");
-      await prefs.remove("maintenance_logs");
+      try {
+        final userId = supabase.auth.currentUser!.id;
+        await supabase.from('fuel_logs').delete().eq('user_id', userId);
+        await supabase.from('maintenance_logs').delete().eq('user_id', userId);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            backgroundColor: Colors.green,
-            content: Text("All local data has been reset.")),
-      );
+        // Also clear local preferences as a good measure
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+        _loadSettings(); // Reload settings to reflect cleared state
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.green,
+              content: Text("All account data has been reset."),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.redAccent,
+              content: Text("An error occurred while resetting data."),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -230,9 +248,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   ListTile(
                     leading: Icon(Icons.delete_forever,
                         color: Colors.orange.shade700),
-                    title: Text("Reset Local Data",
+                    title: Text("Reset Data",
                         style: TextStyle(color: Colors.orange.shade700)),
-                    onTap: () => _resetData(context),
+                    subtitle: const Text("Deletes all fuel & maintenance logs"),
+                    onTap: _resetData,
                   ),
                   const Divider(height: 1),
                   ListTile(
