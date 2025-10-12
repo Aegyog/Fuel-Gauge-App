@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import '../providers/theme_manager.dart';
 
@@ -17,7 +18,6 @@ class _SettingsPageState extends State<SettingsPage> {
   double? _efficiencyThreshold;
   final _thresholdController = TextEditingController();
 
-  // MODIFIED: State variable for the current Supabase user
   final _currentUser = supabase.auth.currentUser;
 
   @override
@@ -32,10 +32,8 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  // MODIFIED: Method to log the user out using Supabase
   Future<void> _logout() async {
     await supabase.auth.signOut();
-    // The AuthGate widget will automatically navigate back to the LoginPage
   }
 
   Future<void> _loadSettings() async {
@@ -114,7 +112,120 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // MODIFIED: This function now deletes all data from the user's account in Supabase.
+  void _showChangePasswordDialog() {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Change Password"),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: currentPasswordController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(labelText: "Current Password"),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your current password.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: newPasswordController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(labelText: "New Password"),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a new password.';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters long.';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                        labelText: "Confirm New Password"),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please confirm your new password.';
+                      }
+                      if (value != newPasswordController.text) {
+                        return 'Passwords do not match.';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final email = _currentUser?.email;
+                  if (email == null) return;
+
+                  try {
+                    // Step 1: Verify current password by attempting to sign in.
+                    await supabase.auth.signInWithPassword(
+                      email: email,
+                      password: currentPasswordController.text,
+                    );
+
+                    // Step 2: If sign-in is successful, update to the new password.
+                    await supabase.auth.updateUser(UserAttributes(
+                      password: newPasswordController.text,
+                    ));
+
+                    if (!mounted) return;
+                    Navigator.of(context).pop(); // Close dialog
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          backgroundColor: Colors.green,
+                          content: Text("Password updated successfully!")),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    Navigator.of(context).pop(); // Close dialog
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          backgroundColor: Colors.redAccent,
+                          content: Text("Error: Incorrect current password.")),
+                    );
+                  }
+                }
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _resetData() async {
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
@@ -122,7 +233,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Confirm Reset'),
         content: const Text(
-            'Are you sure you want to delete all of your fuel and maintenance logs? This action cannot be undone.'),
+            'Are you sure you want to delete all your fuel and maintenance logs? This action cannot be undone.'),
         actions: <Widget>[
           TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -135,35 +246,24 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
-    if (confirmed == true && mounted) {
-      try {
-        final userId = supabase.auth.currentUser!.id;
-        await supabase.from('fuel_logs').delete().eq('user_id', userId);
-        await supabase.from('maintenance_logs').delete().eq('user_id', userId);
+    if (confirmed == true) {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
-        // Also clear local preferences as a good measure
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
-        _loadSettings(); // Reload settings to reflect cleared state
+      await supabase.from('fuel_logs').delete().eq('user_id', userId);
+      await supabase.from('maintenance_logs').delete().eq('user_id', userId);
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              backgroundColor: Colors.green,
-              content: Text("All account data has been reset."),
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              backgroundColor: Colors.redAccent,
-              content: Text("An error occurred while resetting data."),
-            ),
-          );
-        }
-      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); // This will also clear theme and unit settings
+
+      if (!mounted) return;
+      _loadSettings(); // Reload to reset UI state
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            backgroundColor: Colors.green,
+            content: Text("All account data has been reset.")),
+      );
     }
   }
 
@@ -198,10 +298,21 @@ class _SettingsPageState extends State<SettingsPage> {
             const Text("PROFILE"),
             const SizedBox(height: 8),
             Card(
-              child: ListTile(
-                leading: const Icon(Icons.person),
-                title: const Text("Logged In As"),
-                subtitle: Text(_currentUser?.email ?? "Not available"),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.person),
+                    title: const Text("Logged In As"),
+                    subtitle: Text(_currentUser?.email ?? "Not available"),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.lock_outline),
+                    title: const Text("Change Password"),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: _showChangePasswordDialog,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -250,7 +361,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         color: Colors.orange.shade700),
                     title: Text("Reset Data",
                         style: TextStyle(color: Colors.orange.shade700)),
-                    subtitle: const Text("Deletes all fuel & maintenance logs"),
                     onTap: _resetData,
                   ),
                   const Divider(height: 1),
