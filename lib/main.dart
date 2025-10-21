@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Import dotenv
 import 'providers/theme_manager.dart';
 import 'utils/constants.dart';
 import 'widgets/auth_gate.dart';
@@ -8,14 +9,17 @@ import 'widgets/auth_gate.dart';
 // Make the supabase client globally available
 final supabase = Supabase.instance.client;
 
-void main() async {
+Future<void> main() async {
+  // Make main async
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Supabase
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+
+  // Initialize Supabase using environment variables
   await Supabase.initialize(
-    url: 'https://hcftaffezxdtideqzwke.supabase.co', // Replace with your URL
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhjZnRhZmZlenhkdGlkZXF6d2tlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMTUzNzUsImV4cCI6MjA3NTY5MTM3NX0.SV2in4Nco5_qY_8_gQn6uUxSuDVkW0oe_qBLLtBn_tA', // Replace with your Key
+    url: dotenv.env['SUPABASE_URL']!, // Get URL from env
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!, // Get Key from env
   );
 
   runApp(
